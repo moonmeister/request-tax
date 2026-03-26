@@ -1,0 +1,136 @@
+{
+    "payloads": [
+        10,
+        100,
+        1000,
+        10000
+    ],
+    "splitStrategies": {
+        "10": [
+            1,
+            10
+        ],
+        "100": [
+            1,
+            10,
+            100
+        ],
+        "1000": [
+            1,
+            10,
+            100
+        ],
+        "10000": [
+            1,
+            10,
+            100
+        ]
+    },
+    "fixtureMap": {
+        "1": "1kb.bin",
+        "10": "10kb.bin",
+        "100": "100kb.bin",
+        "1000": "1mb.bin",
+        "10000": "10mb.bin"
+    },
+    "requestMode": "parallel",
+    "repetitions": {
+        "small": 100,
+        "medium": 50,
+        "large": 30
+    },
+    "warmupRuns": 5,
+    "cacheProfiles": {
+        "off": {
+            "description": "No cache (Phase A baseline)",
+            "ttlSeconds": 0
+        },
+        "short-ttl": {
+            "description": "1-minute TTL (frequently updated API)",
+            "ttlSeconds": 60
+        },
+        "long-ttl": {
+            "description": "1-hour TTL (stable resources)",
+            "ttlSeconds": 3600
+        },
+        "mixed": {
+            "description": "5-minute TTL (realistic mixed API surface)",
+            "ttlSeconds": 300
+        }
+    },
+    "phase3": {
+        "cacheTtlSeconds": 3600,
+        "invalidationProfiles": {
+            "full-purge": {
+                "description": "All chunks invalidated",
+                "staleRatio": 1
+            },
+            "partial-purge-20pct": {
+                "description": "~20% chunks invalidated",
+                "staleRatio": 0.2
+            },
+            "partial-purge-40pct": {
+                "description": "~40% chunks invalidated",
+                "staleRatio": 0.4
+            }
+        }
+    },
+    "profiles": {
+        "baseline": {
+            "cdp": {
+                "latency": 0,
+                "downloadThroughput": -1,
+                "uploadThroughput": -1,
+                "offline": false
+            },
+            "netem": null
+        },
+        "moderate-rtt": {
+            "cdp": null,
+            "netem": {
+                "delayMs": 40,
+                "lossPct": 0
+            }
+        },
+        "loss-0.5pct": {
+            "cdp": {
+                "latency": 0,
+                "downloadThroughput": -1,
+                "uploadThroughput": -1,
+                "offline": false
+            },
+            "netem": {
+                "delayMs": 40,
+                "lossPct": 0.5
+            }
+        },
+        "loss-1pct": {
+            "cdp": {
+                "latency": 0,
+                "downloadThroughput": -1,
+                "uploadThroughput": -1,
+                "offline": false
+            },
+            "netem": {
+                "delayMs": 40,
+                "lossPct": 1
+            }
+        },
+        "loss-3pct": {
+            "cdp": {
+                "latency": 0,
+                "downloadThroughput": -1,
+                "uploadThroughput": -1,
+                "offline": false
+            },
+            "netem": {
+                "delayMs": 40,
+                "lossPct": 3
+            }
+        }
+    },
+    "protocols": [
+        "h1",
+        "h3"
+    ]
+}

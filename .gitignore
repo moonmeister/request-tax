@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+results/raw/*.json
+results/analysis/*.csv
+results/reports/*
+!results/raw/.gitkeep
+!results/analysis/.gitkeep
+!results/reports/.gitkeep

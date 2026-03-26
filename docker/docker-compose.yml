@@ -1,0 +1,23 @@
+services:
+  edge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: request-tax-edge
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8443:8443"
+      - "8444:8444"
+    depends_on:
+      - origin
+
+  origin:
+    image: node:24-alpine
+    container_name: request-tax-origin
+    working_dir: /app
+    command: ["node", "server/handlers/origin.js"]
+    environment:
+      - ORIGIN_PORT=3000
+    volumes:
+      - ..:/app

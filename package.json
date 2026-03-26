@@ -1,0 +1,24 @@
+{
+    "name": "request-tax",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "benchmark": "node harness/index.js",
+        "phase:a": "node harness/index.js --phase a",
+        "phase:b": "node harness/index.js --phase b",
+        "phase:c": "node harness/index.js --phase c",
+        "phase:early-hints": "node harness/index.js --phase early-hints",
+        "run:all": "node harness/sequencer.js",
+        "smoke:a": "node harness/index.js --phase a --smoke",
+        "smoke:b": "node harness/index.js --phase b --smoke",
+        "smoke:c": "node harness/index.js --phase c --smoke",
+        "smoke:all": "node harness/index.js --phase a --smoke && node harness/index.js --phase c --smoke",
+        "insights": "node harness/insights.js",
+        "postinstall": "playwright install chromium"
+    },
+    "dependencies": {
+        "minimist": "^1.2.8",
+        "playwright": "^1.53.0"
+    }
+}
