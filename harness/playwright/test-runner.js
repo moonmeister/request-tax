@@ -1,7 +1,94 @@
 import { chromium } from "playwright";
+import { extractCaddySPKI, buildSpkiFlag } from "../utils/caddy-cert.js";
+
+// Cache SPKI hashes for the benchmark run
+let cachedSpkiFlag = null;
+
+async function getSpkiFlag() {
+  if (!cachedSpkiFlag) {
+    try {
+      const [root, leaf] = await extractCaddySPKI(8444);
+      cachedSpkiFlag = buildSpkiFlag([root, leaf]);
+    } catch (err) {
+      console.warn(`⚠️  Could not extract SPKI: ${err.message}`);
+      cachedSpkiFlag = "--ignore-certificate-errors";
+    }
+  }
+  return cachedSpkiFlag;
+}
 
 function portForProtocol(protocol) {
   return protocol === "h3" ? 8444 : 8443;
+}
+
+async function launchBrowser(protocol, host) {
+  if (protocol === "h3") {
+    const spkiFlag = await getSpkiFlag();
+    const h3Args = [
+      "--enable-quic",
+      `--origin-to-force-quic-on=${host}:8444`,
+      "--allow-insecure-localhost",
+      spkiFlag,
+    ];
+
+    // Prefer local Chrome for h3 because bundled Chromium can be flaky for QUIC.
+    try {
+      return await chromium.launch({
+        channel: "chrome",
+        headless: true,
+        args: h3Args,
+      });
+    } catch {
+      return chromium.launch({
+        headless: true,
+        args: h3Args,
+      });
+    }
+  }
+
+  return chromium.launch({ headless: true });
+}
+
+async function runOnce({ launchProtocol, protocolProfile, url, profile }) {
+  let browser;
+  let context;
+  try {
+    browser = await launchBrowser(launchProtocol, protocolProfile);
+    context = await browser.newContext({
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+
+    // Note: Network emulation via CDP breaks H3/QUIC due to UDP sensitivity.
+    // Only enable CDP emulation for non-H3 protocols.
+    if (profile?.cdp && launchProtocol !== "h3") {
+      await cdp.send("Network.enable");
+      await cdp.send("Network.emulateNetworkConditions", profile.cdp);
+    }
+
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForFunction(() => !!window.__BENCH_RESULT, {
+      timeout: 60_000,
+    });
+    const result = await page.evaluate(() => window.__BENCH_RESULT);
+
+    await context.close();
+    await browser.close();
+    return result;
+  } finally {
+    if (context) {
+      try {
+        await context.close();
+      } catch {}
+    }
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {}
+    }
+  }
 }
 
 export async function runBrowserScenario({
@@ -15,19 +102,6 @@ export async function runBrowserScenario({
   invalidationProfile,
   staleChunks,
 }) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: true,
-  });
-
-  const page = await context.newPage();
-  const cdp = await context.newCDPSession(page);
-
-  if (profile?.cdp) {
-    await cdp.send("Network.enable");
-    await cdp.send("Network.emulateNetworkConditions", profile.cdp);
-  }
-
   const path = earlyHints ? "/bench-early-hints" : "/bench";
   const params = new URLSearchParams({
     file: file,
@@ -43,15 +117,56 @@ export async function runBrowserScenario({
     params.set("invalidationProfile", invalidationProfile);
     params.set("staleChunks", String(staleChunks || 1));
   }
-  const url = `https://localhost:${portForProtocol(protocol)}${path}?${params.toString()}`;
+  const host = "localhost";
+  const url = `https://${host}:${portForProtocol(protocol)}${path}?${params.toString()}`;
+  const allowH3Fallback =
+    String(process.env.H3_ALLOW_FALLBACK || "").toLowerCase() === "true";
+  let lastError;
 
-  await page.goto(url, { waitUntil: "load" });
-  await page.waitForFunction(() => !!window.__BENCH_RESULT, {
-    timeout: 60_000,
-  });
-  const result = await page.evaluate(() => window.__BENCH_RESULT);
+  try {
+    return await runOnce({
+      launchProtocol: protocol,
+      protocolProfile: host,
+      url,
+      profile,
+    });
+  } catch (error) {
+    lastError = error;
+  }
 
-  await context.close();
-  await browser.close();
-  return result;
+  // Optional compatibility fallback for diagnostics only.
+  // Default behavior is strict: h3 scenario must stay h3.
+  if (protocol === "h3" && allowH3Fallback) {
+    const fallbackTargets = [
+      `https://localhost:8444${path}?${params.toString()}`,
+      `https://localhost:8443${path}?${params.toString()}`,
+    ];
+
+    for (const fallbackUrl of fallbackTargets) {
+      try {
+        const result = await runOnce({
+          launchProtocol: "h1",
+          protocolProfile: "localhost",
+          url: fallbackUrl,
+          profile,
+        });
+        return {
+          ...result,
+          fallbackUsed: true,
+          fallbackReason: String(lastError?.message || lastError),
+          fallbackUrl,
+        };
+      } catch {
+        // Try next fallback target.
+      }
+    }
+  }
+
+  if (protocol === "h3") {
+    throw new Error(
+      `Strict h3 run failed without fallback. Set H3_ALLOW_FALLBACK=true for diagnostics. Original error: ${String(lastError?.message || lastError)}`,
+    );
+  }
+
+  throw lastError;
 }

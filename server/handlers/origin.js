@@ -200,7 +200,10 @@ const server = http.createServer(async (req, res) => {
         res.writeEarlyHints({ link: links });
       }
 
-      return html(res, benchPage({ fileName: file, chunks, cacheTtl, cacheScope }));
+      return html(
+        res,
+        benchPage({ fileName: file, chunks, cacheTtl, cacheScope }),
+      );
     }
 
     json(res, 404, { error: "not_found" });

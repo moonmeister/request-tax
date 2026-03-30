@@ -60,6 +60,10 @@ async function runSingleScenario(s, { earlyHints = false }) {
       isWarmup: i < s.warmupRuns,
       pageCompletionTime: result.pageCompletionTime,
       requestCount: result.requestCount,
+      navigationProtocol: result.navigationProtocol || null,
+      fallbackUsed: !!result.fallbackUsed,
+      fallbackUrl: result.fallbackUrl || null,
+      fallbackReason: result.fallbackReason || null,
       entries: result.entries,
     });
   }
@@ -170,12 +174,57 @@ async function run() {
     scenarios = scenariosWithInvalidation;
   }
 
-  if (args.smoke) {
-    scenarios = scenarios.slice(0, 1).map((s) => ({
+  const measuredRunsOverride =
+    args["measured-runs"] !== undefined
+      ? Number(args["measured-runs"])
+      : undefined;
+  const warmupRunsOverride =
+    args["warmup-runs"] !== undefined ? Number(args["warmup-runs"]) : undefined;
+
+  if (measuredRunsOverride !== undefined || warmupRunsOverride !== undefined) {
+    if (
+      measuredRunsOverride !== undefined &&
+      (!Number.isFinite(measuredRunsOverride) || measuredRunsOverride < 1)
+    ) {
+      throw new Error("--measured-runs must be a positive integer");
+    }
+    if (
+      warmupRunsOverride !== undefined &&
+      (!Number.isFinite(warmupRunsOverride) || warmupRunsOverride < 0)
+    ) {
+      throw new Error("--warmup-runs must be a non-negative integer");
+    }
+
+    scenarios = scenarios.map((s) => ({
       ...s,
-      warmupRuns: 0,
-      measuredRuns: 1,
+      measuredRuns:
+        measuredRunsOverride !== undefined
+          ? Math.floor(measuredRunsOverride)
+          : s.measuredRuns,
+      warmupRuns:
+        warmupRunsOverride !== undefined
+          ? Math.floor(warmupRunsOverride)
+          : s.warmupRuns,
     }));
+  }
+
+  if (args.smoke) {
+    const smokeScenarios = [];
+    const seenProtocols = new Set();
+
+    for (const s of scenarios) {
+      if (seenProtocols.has(s.protocol)) {
+        continue;
+      }
+      seenProtocols.add(s.protocol);
+      smokeScenarios.push({
+        ...s,
+        warmupRuns: 0,
+        measuredRuns: 1,
+      });
+    }
+
+    scenarios = smokeScenarios;
   }
 
   if (!args["no-start"]) {
@@ -192,7 +241,10 @@ async function run() {
       const scopedScenario =
         phaseKey === "b" ? { ...s, cacheScope: scenarioId(s) } : s;
 
-      const runs = await runSingleScenario(scopedScenario, { earlyHints });
+      let runs;
+      runs = await runSingleScenario(scopedScenario, {
+        earlyHints,
+      });
       const summary = summarizeRuns(runs);
 
       const payload = {
@@ -214,6 +266,7 @@ async function run() {
           warmupRuns: s.warmupRuns,
           measuredRuns: s.measuredRuns,
           earlyHints,
+          degradedFallbackUsed: runs.some((r) => r.fallbackUsed),
         },
         runs,
         summary,

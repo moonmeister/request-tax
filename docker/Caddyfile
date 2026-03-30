@@ -1,38 +1,23 @@
 {
     auto_https disable_redirects
+    default_sni localhost
 
     # Port 8443 is reserved for HTTP/1.1-only benchmark runs.
     servers :8443 {
         protocols h1
     }
 
-    # Port 8444 is reserved for HTTP/3-only benchmark runs.
+    # Port 8444 is the H3 benchmark endpoint.
+    # Keep h1/h2 enabled for Chrome interoperability; client runner enforces h3.
     servers :8444 {
-        protocols h3
+        protocols h1 h2 h3
     }
 }
 
-https://localhost:8443 {
+https://localhost:8443, https://localhost:8444 {
     tls internal
 
-    header {
-        -Alt-Svc
-    }
-
-    # Phase B cache testing on the HTTP/1.1-only listener.
-    @payload path /payload/*
-    handle @payload {
-        cache
-        reverse_proxy origin:3000
-    }
-
-    reverse_proxy origin:3000
-}
-
-https://localhost:8444 {
-    tls internal
-
-    # Phase B and Phase C cache testing on the HTTP/3-only listener.
+    # Phase B and Phase C cache testing on the appropriate listener.
     @payload path /payload/*
     handle @payload {
         cache

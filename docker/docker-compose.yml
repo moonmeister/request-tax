@@ -9,6 +9,7 @@ services:
     ports:
       - "8443:8443"
       - "8444:8444"
+      - "8444:8444/udp"
     depends_on:
       - origin
 
