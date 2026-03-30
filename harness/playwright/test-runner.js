@@ -59,19 +59,10 @@ async function runOnce({ launchProtocol, protocolProfile, url, profile }) {
     });
 
     const page = await context.newPage();
-    const cdp = await context.newCDPSession(page);
-
-    // Note: Network emulation via CDP breaks H3/QUIC due to UDP sensitivity.
-    // Only enable CDP emulation for non-H3 protocols.
-    if (profile?.cdp && launchProtocol !== "h3") {
-      await cdp.send("Network.enable");
-      await cdp.send("Network.emulateNetworkConditions", profile.cdp);
-    }
+    page.setDefaultTimeout(180_000);
 
     await page.goto(url, { waitUntil: "load" });
-    await page.waitForFunction(() => !!window.__BENCH_RESULT, {
-      timeout: 60_000,
-    });
+    await page.waitForFunction(() => !!window.__BENCH_RESULT);
     const result = await page.evaluate(() => window.__BENCH_RESULT);
 
     await context.close();
