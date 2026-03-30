@@ -186,26 +186,6 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    if (url.pathname === "/bench-early-hints") {
-      const file = url.searchParams.get("file") || "10kb.bin";
-      const chunks = Number(url.searchParams.get("chunks") || 1);
-      const cacheTtl = url.searchParams.get("cacheTtl");
-      const cacheScope = url.searchParams.get("cacheScope");
-      const links = Array.from(
-        { length: chunks },
-        (_, i) => `</payload/${file}?n=${i}>; rel=preload; as=fetch`,
-      );
-
-      if (typeof res.writeEarlyHints === "function") {
-        res.writeEarlyHints({ link: links });
-      }
-
-      return html(
-        res,
-        benchPage({ fileName: file, chunks, cacheTtl, cacheScope }),
-      );
-    }
-
     json(res, 404, { error: "not_found" });
   } catch (error) {
     json(res, 500, { error: String(error) });

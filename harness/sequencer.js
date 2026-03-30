@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Sequencer: Run benchmark phases in order (A → C → Early Hints)
+ * Sequencer: Run benchmark phases in order (A → B → C)
  * with clean messaging and proper container lifecycle management.
  */
 
@@ -39,7 +39,7 @@ function runPhase(phase) {
 }
 
 async function main() {
-  const phases = ["a", "c", "early-hints"];
+  const phases = ["a", "b", "c"];
   const startTime = Date.now();
 
   try {
@@ -53,9 +53,7 @@ async function main() {
     console.log(`${"=".repeat(60)}`);
     console.log("\nResults available in:");
     console.log("  - Raw JSON: results/raw/*.json");
-    console.log(
-      "  - Summary CSV: results/analysis/phase-{a,b,c,early-hints}-summary.csv",
-    );
+    console.log("  - Summary CSV: results/analysis/phase-{a,b,c}-summary.csv");
     console.log();
   } catch (error) {
     console.error(`\n✗ Benchmark failed: ${error.message}`);

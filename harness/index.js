@@ -11,7 +11,6 @@ import {
   clearNetem,
 } from "./server-manager.js";
 import { runBrowserScenario } from "./playwright/test-runner.js";
-import { runEarlyHintsScenario } from "./playwright/early-hints-runner.js";
 
 const scenarioFile = path.resolve("harness", "scenarios.json");
 const rawDir = path.resolve("results", "raw");
@@ -31,20 +30,23 @@ function scenarioId(s) {
   );
 }
 
+function runScenarioId(s) {
+  return scenarioId(s);
+}
+
 async function writeJson(file, payload) {
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, JSON.stringify(payload, null, 2) + "\n", "utf8");
 }
 
-async function runSingleScenario(s, { earlyHints = false }) {
+async function runSingleScenario(s) {
   const runs = [];
   const totalRuns = s.warmupRuns + s.measuredRuns;
 
   await applyNetem(s.profile.netem);
 
   for (let i = 0; i < totalRuns; i += 1) {
-    const runner = earlyHints ? runEarlyHintsScenario : runBrowserScenario;
-    const result = await runner({
+    const result = await runBrowserScenario({
       protocol: s.protocol,
       file: s.file,
       splitCount: s.splitCount,
@@ -97,10 +99,6 @@ async function run() {
   const cfg = await loadScenarios(scenarioFile);
   const phaseKey = args.phase;
   let scenarios = expandScenarioMatrix(cfg);
-
-  if (phaseKey === "early-hints") {
-    scenarios = scenarios.filter((s) => s.profileName === "baseline");
-  }
 
   if (phaseKey === "a") {
     scenarios = scenarios.filter((s) =>
@@ -177,7 +175,11 @@ async function run() {
 
   // Filter by scenario ID if specified
   if (args.scenario) {
-    scenarios = scenarios.filter((s) => scenarioId(s) === args.scenario);
+    scenarios = scenarios.filter((s) => {
+      const base = scenarioId(s);
+      const runId = runScenarioId(s);
+      return args.scenario === base || args.scenario === runId;
+    });
     if (scenarios.length === 0) {
       console.error(`No scenarios matched: ${args.scenario}`);
       process.exit(1);
@@ -198,7 +200,7 @@ async function run() {
         .map((f) => f.replace(/_\d+\.json$/, "")),
     );
     const before = scenarios.length;
-    scenarios = scenarios.filter((s) => !completedIds.has(scenarioId(s)));
+    scenarios = scenarios.filter((s) => !completedIds.has(runScenarioId(s)));
     const skipped = before - scenarios.length;
     if (skipped > 0) {
       console.log(`resume: skipping ${skipped} already-completed scenario(s)`);
@@ -270,22 +272,19 @@ async function run() {
 
   try {
     for (const s of scenarios) {
-      const earlyHints = phaseKey === "early-hints";
-
       // Keep Phase B cache comparisons isolated by using a per-scenario cache namespace.
       const scopedScenario =
         phaseKey === "b" ? { ...s, cacheScope: scenarioId(s) } : s;
 
       let runs;
-      runs = await runSingleScenario(scopedScenario, {
-        earlyHints,
-      });
+      runs = await runSingleScenario(scopedScenario);
       const summary = summarizeRuns(runs);
 
       const payload = {
         metadata: {
           timestamp: new Date().toISOString(),
-          scenario: scenarioId(s),
+          scenario: runScenarioId(s),
+          scenarioBase: scenarioId(s),
           phase: phaseKey,
           protocol: s.protocol,
           profileName: s.profileName,
@@ -300,7 +299,6 @@ async function run() {
           file: s.file,
           warmupRuns: s.warmupRuns,
           measuredRuns: s.measuredRuns,
-          earlyHints,
           degradedFallbackUsed: runs.some((r) => r.fallbackUsed),
         },
         runs,
@@ -308,11 +306,13 @@ async function run() {
       };
 
       await writeJson(
-        path.join(rawDir, `${scenarioId(s)}_${Date.now()}.json`),
+        path.join(rawDir, `${runScenarioId(s)}_${Date.now()}.json`),
         payload,
       );
       summaryRows.push({ ...s, summary });
-      console.log(`completed ${scenarioId(s)} p95=${summary.p95.toFixed(2)}ms`);
+      console.log(
+        `completed ${runScenarioId(s)} p95=${summary.p95.toFixed(2)}ms`,
+      );
     }
 
     await writeScenarioSummaryCsv(

@@ -87,13 +87,12 @@ export async function runBrowserScenario({
   file,
   splitCount,
   profile,
-  earlyHints,
   cacheTtl,
   cacheScope,
   invalidationProfile,
   staleChunks,
 }) {
-  const path = earlyHints ? "/bench-early-hints" : "/bench";
+  const path = "/bench";
   const params = new URLSearchParams({
     file: file,
     chunks: splitCount,

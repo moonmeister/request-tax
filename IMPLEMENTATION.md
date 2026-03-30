@@ -18,7 +18,7 @@ This document reflects the current benchmark implementation and known caveats.
 
 - Purpose:
   - Serves binary payload fixtures from `server/payloads`
-  - Emits benchmark pages (`/bench`, `/bench-early-hints`)
+  - Emits benchmark page (`/bench`)
   - Applies response cache headers based on scenario (`cacheTtl`)
 - Location: `server/handlers/origin.js`
 
@@ -86,7 +86,6 @@ request-tax/
 │   ├── insights.js
 │   ├── playwright/
 │   │   ├── test-runner.js
-│   │   └── early-hints-runner.js
 │   └── utils/
 │       ├── config.js
 │       ├── timing.js
@@ -116,7 +115,6 @@ From `package.json`:
 - `pnpm phase:a`
 - `pnpm phase:b`
 - `pnpm phase:c`
-- `pnpm phase:early-hints`
 - `pnpm smoke:a`
 - `pnpm smoke:b`
 - `pnpm smoke:c`

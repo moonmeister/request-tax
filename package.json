@@ -8,7 +8,6 @@
         "phase:a": "node harness/index.js --phase a",
         "phase:b": "node harness/index.js --phase b",
         "phase:c": "node harness/index.js --phase c",
-        "phase:early-hints": "node harness/index.js --phase early-hints",
         "run:all": "node harness/sequencer.js",
         "smoke:a": "node harness/index.js --phase a --smoke",
         "smoke:b": "node harness/index.js --phase b --smoke",
