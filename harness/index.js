@@ -75,14 +75,15 @@ async function runSingleScenario(s, { earlyHints = false }) {
 async function run() {
   const cliArgs = process.argv.slice(2).filter((a) => a !== "--");
   const args = minimist(cliArgs, {
-    string: ["phase", "mode"],
-    boolean: ["no-start", "no-stop", "smoke"],
+    string: ["phase", "mode", "scenario"],
+    boolean: ["no-start", "no-stop", "smoke", "resume"],
     default: {
       phase: "a",
       mode: "run",
       "no-start": false,
       "no-stop": false,
       smoke: false,
+      resume: false,
     },
   });
 
@@ -172,6 +173,40 @@ async function run() {
       }
     }
     scenarios = scenariosWithInvalidation;
+  }
+
+  // Filter by scenario ID if specified
+  if (args.scenario) {
+    scenarios = scenarios.filter((s) => scenarioId(s) === args.scenario);
+    if (scenarios.length === 0) {
+      console.error(`No scenarios matched: ${args.scenario}`);
+      process.exit(1);
+    }
+  }
+
+  // Resume: skip scenarios that already have a completed result file
+  if (args.resume) {
+    let existingFiles = [];
+    try {
+      existingFiles = await fs.readdir(rawDir);
+    } catch {
+      // rawDir doesn't exist yet, nothing to skip
+    }
+    const completedIds = new Set(
+      existingFiles
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => f.replace(/_\d+\.json$/, "")),
+    );
+    const before = scenarios.length;
+    scenarios = scenarios.filter((s) => !completedIds.has(scenarioId(s)));
+    const skipped = before - scenarios.length;
+    if (skipped > 0) {
+      console.log(`resume: skipping ${skipped} already-completed scenario(s)`);
+    }
+    if (scenarios.length === 0) {
+      console.log("resume: all scenarios already complete");
+      return;
+    }
   }
 
   const measuredRunsOverride =
