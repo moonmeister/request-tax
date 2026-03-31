@@ -40,22 +40,21 @@
         "large": 30
     },
     "warmupRuns": 5,
-    "cacheProfiles": {
-        "off": {
-            "description": "No cache (Phase A baseline)",
-            "ttlSeconds": 0
+    "phase2Profiles": {
+        "origin-no-cache": {
+            "description": "Origin-backed control with no edge cache",
+            "ttlSeconds": 0,
+            "payloadMode": "origin-proxy"
         },
-        "short-ttl": {
-            "description": "1-minute TTL (frequently updated API)",
-            "ttlSeconds": 60
+        "edge-cache-hit": {
+            "description": "Origin-backed path with edge cache hits",
+            "ttlSeconds": 31536000,
+            "payloadMode": "origin-proxy"
         },
-        "long-ttl": {
-            "description": "1-hour TTL (stable resources)",
-            "ttlSeconds": 3600
-        },
-        "mixed": {
-            "description": "5-minute TTL (realistic mixed API surface)",
-            "ttlSeconds": 300
+        "edge-direct": {
+            "description": "Caddy serves payloads directly with no origin hop",
+            "ttlSeconds": 0,
+            "payloadMode": "edge-direct"
         }
     },
     "phase3": {

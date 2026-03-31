@@ -13,6 +13,8 @@ This document reflects the current benchmark implementation and known caveats.
   - `:8443` is HTTP/1.1 only (`protocols h1`)
   - `:8444` is HTTP/3 only (`protocols h3`)
   - HTTP/2 is intentionally disabled for this benchmark.
+- Phase B control path:
+  - `/edge-payload/*` is served directly by Caddy from local payload files, bypassing both origin fetch and edge cache.
 
 #### Origin: Node HTTP Server
 
@@ -47,13 +49,19 @@ CDP throttling remains supported by the runner when a profile provides `cdp`, bu
 
 ### Caching Phases
 
-#### Phase B: TTL Profile Comparisons
+#### Phase B: Cache And Backhaul Attribution Controls
 
-- Uses real Caddy cache behavior (not synthetic post-processing).
-- Profiles: `off`, `short-ttl`, `long-ttl`, `mixed`.
+- Uses three controls to separate cache-hit gains from backend-hop elimination.
+- Profiles:
+  - `origin-no-cache`: origin-backed control with no edge cache
+  - `edge-cache-hit`: origin-backed payloads served from edge cache with very long TTL
+  - `edge-direct`: payloads served directly by Caddy with no origin hop
 - Isolation method:
   - Per-scenario cache namespace (`cacheScope`) is included in payload URLs.
   - This prevents cross-scenario cache bleed without requiring Caddy restart or purge APIs.
+- Interpretation:
+  - `origin-no-cache` vs `edge-cache-hit` shows the combined effect of edge caching and avoiding origin fetch on hits.
+  - `edge-cache-hit` vs `edge-direct` shows how much of that gain is simply backend-hop elimination versus cache behavior itself.
 
 #### Phase C: Selective Invalidation
 
@@ -103,7 +111,7 @@ Primary config file: `harness/scenarios.json`
 - Payload matrix and split strategies
 - Repetitions and warmup count
 - Protocol list (`h1`, `h3`)
-- Phase B cache profiles (`cacheProfiles`)
+- Phase B delivery profiles (`phase2Profiles`)
 - Phase C invalidation profiles (`phase3.invalidationProfiles`)
 - Network profiles (`profiles`) with `cdp` and/or `netem`
 
@@ -129,7 +137,7 @@ Raw results are written to `results/raw` (JSON per scenario). Summaries are writ
 Metadata includes:
 
 - `phase`, `protocol`, `profileName`
-- `cacheProfile`, `cacheScope`, `cacheTtl`
+- `cacheProfile`, `cacheScope`, `cacheTtl`, `payloadMode`, `originBypassed`
 - `invalidationProfile`, `staleChunks`
 - Payload/split/chunk dimensions
 - Warmup/measured run counts

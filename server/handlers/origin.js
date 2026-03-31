@@ -36,6 +36,7 @@ function benchPage({
   chunks,
   cacheTtl,
   cacheScope,
+  payloadMode,
   invalidationProfile,
   staleChunks,
 }) {
@@ -49,14 +50,16 @@ function benchPage({
   const fileName = ${JSON.stringify(fileName)};
   const cacheTtl = ${JSON.stringify(cacheTtl || null)};
   const cacheScope = ${JSON.stringify(cacheScope || null)};
+  const payloadMode = ${JSON.stringify(payloadMode || "origin-proxy")};
   const invalidationProfile = ${JSON.stringify(invalidationProfile || null)};
   const staleChunks = ${JSON.stringify(staleChunks || 0)};
   const useCache = !!cacheTtl;
+  const payloadBasePath = payloadMode === 'edge-direct' ? '/edge-payload/' : '/payload/';
   const runToken = String(Date.now());
 
   function makeUrl(i, version) {
-    let u = '/payload/' + fileName + '?n=' + i;
-    if (useCache) {
+    let u = payloadBasePath + fileName + '?n=' + i;
+    if (useCache && payloadMode !== 'edge-direct') {
       u += '&cacheTtl=' + cacheTtl;
     } else {
       u += '&ts=' + runToken;
@@ -104,7 +107,7 @@ function benchPage({
 
   const entries = performance
     .getEntriesByType('resource')
-    .filter((e) => e.name.includes('/payload/'))
+    .filter((e) => e.name.includes('/payload/') || e.name.includes('/edge-payload/'))
     .map((e) => ({
       name: e.name,
       startTime: e.startTime,
@@ -123,6 +126,7 @@ function benchPage({
     requestCount: requests.length,
     entries,
     navigationProtocol: navigationEntry ? navigationEntry.nextHopProtocol : null,
+    payloadMode,
     invalidationProfile,
     staleChunks
   };
@@ -171,6 +175,7 @@ const server = http.createServer(async (req, res) => {
       const chunks = Number(url.searchParams.get("chunks") || 1);
       const cacheTtl = url.searchParams.get("cacheTtl");
       const cacheScope = url.searchParams.get("cacheScope");
+      const payloadMode = url.searchParams.get("payloadMode") || "origin-proxy";
       const invalidationProfile = url.searchParams.get("invalidationProfile");
       const staleChunks = Number(url.searchParams.get("staleChunks") || 0);
       return html(
@@ -180,6 +185,7 @@ const server = http.createServer(async (req, res) => {
           chunks,
           cacheTtl,
           cacheScope,
+          payloadMode,
           invalidationProfile,
           staleChunks,
         }),

@@ -12,11 +12,11 @@
         "smoke:a": "node harness/index.js --phase a --smoke",
         "smoke:b": "node harness/index.js --phase b --smoke",
         "smoke:c": "node harness/index.js --phase c --smoke",
-        "smoke:all": "node harness/index.js --phase a --smoke && node harness/index.js --phase b --smoke && node harness/index.js --phase c --smoke",
+        "smoke:all": "node harness/sequencer.js --smoke",
         "quick:a": "node harness/index.js --phase a --measured-runs 10 --warmup-runs 1",
         "quick:b": "node harness/index.js --phase b --measured-runs 10 --warmup-runs 1",
         "quick:c": "node harness/index.js --phase c --measured-runs 10 --warmup-runs 1",
-        "quick:all": "node harness/index.js --phase a --measured-runs 10 --warmup-runs 1 && node harness/index.js --phase b --measured-runs 10 --warmup-runs 1 && node harness/index.js --phase c --measured-runs 10 --warmup-runs 1",
+        "quick:all": "node harness/sequencer.js --measured-runs 10 --warmup-runs 1",
         "verify:h3": "node scripts/verify-h3.mjs",
         "insights": "node harness/insights.js",
         "postinstall": "playwright install chromium"

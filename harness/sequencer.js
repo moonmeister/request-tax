@@ -7,22 +7,37 @@
 
 import { spawn } from "node:child_process";
 
+function forwardedArgsForPhase(phase) {
+  const cliArgs = process.argv.slice(2).filter((arg) => arg !== "--");
+  const forwardedArgs = [];
+
+  for (let index = 0; index < cliArgs.length; index += 1) {
+    const arg = cliArgs[index];
+
+    if (arg === "--phase") {
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--phase=")) {
+      continue;
+    }
+
+    forwardedArgs.push(arg);
+  }
+
+  return ["harness/index.js", "--phase", phase, ...forwardedArgs];
+}
+
 function runPhase(phase) {
   return new Promise((resolve, reject) => {
     console.log(`\n${"=".repeat(60)}`);
     console.log(`Starting Phase ${phase.toUpperCase()}`);
     console.log(`${"=".repeat(60)}\n`);
 
-    const child = spawn(
-      "node",
-      [
-        "harness/index.js",
-        "--phase",
-        phase,
-        ...(process.argv.includes("--smoke") ? ["--smoke"] : []),
-      ],
-      { stdio: "inherit" },
-    );
+    const child = spawn("node", forwardedArgsForPhase(phase), {
+      stdio: "inherit",
+    });
 
     child.on("error", reject);
     child.on("close", (code) => {

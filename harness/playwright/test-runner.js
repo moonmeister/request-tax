@@ -89,6 +89,7 @@ export async function runBrowserScenario({
   profile,
   cacheTtl,
   cacheScope,
+  payloadMode,
   invalidationProfile,
   staleChunks,
 }) {
@@ -97,6 +98,9 @@ export async function runBrowserScenario({
     file: file,
     chunks: splitCount,
   });
+  if (payloadMode && payloadMode !== "origin-proxy") {
+    params.set("payloadMode", payloadMode);
+  }
   if (cacheTtl > 0) {
     params.set("cacheTtl", cacheTtl);
   }

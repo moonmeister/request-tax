@@ -53,6 +53,7 @@ async function runSingleScenario(s) {
       profile: s.profile,
       cacheTtl: s.cacheTtl || 0,
       cacheScope: s.cacheScope || null,
+      payloadMode: s.payloadMode || "origin-proxy",
       invalidationProfile: s.invalidationProfileName,
       staleChunks: s.staleChunks,
     });
@@ -113,24 +114,27 @@ async function run() {
   }
 
   if (phaseKey === "b") {
-    // Phase B tests cache behavior: baseline network profile only, but with different cache policies
+    // Phase B isolates cache-hit gains from backend-hop elimination.
     scenarios = scenarios.filter((s) => s.profileName === "baseline");
 
-    // Expand scenarios with cache profiles (off, short-ttl, long-ttl, mixed)
-    const cacheProfiles = cfg.cacheProfiles || {
-      off: { ttlSeconds: 0 },
-      "short-ttl": { ttlSeconds: 60 },
-      "long-ttl": { ttlSeconds: 3600 },
-      mixed: { ttlSeconds: 300 },
+    // Expand scenarios with Phase B delivery profiles.
+    const phase2Profiles = cfg.phase2Profiles || {
+      "origin-no-cache": { ttlSeconds: 0, payloadMode: "origin-proxy" },
+      "edge-cache-hit": {
+        ttlSeconds: 31536000,
+        payloadMode: "origin-proxy",
+      },
+      "edge-direct": { ttlSeconds: 0, payloadMode: "edge-direct" },
     };
 
     const scenariosWithCache = [];
     for (const s of scenarios) {
-      for (const [cacheName, cacheConfig] of Object.entries(cacheProfiles)) {
+      for (const [cacheName, cacheConfig] of Object.entries(phase2Profiles)) {
         scenariosWithCache.push({
           ...s,
           cacheProfile: cacheName,
           cacheTtl: cacheConfig.ttlSeconds,
+          payloadMode: cacheConfig.payloadMode || "origin-proxy",
         });
       }
     }
@@ -291,6 +295,8 @@ async function run() {
           cacheProfile: s.cacheProfile || null,
           cacheScope: scopedScenario.cacheScope || null,
           cacheTtl: s.cacheTtl || 0,
+          payloadMode: s.payloadMode || "origin-proxy",
+          originBypassed: (s.payloadMode || "origin-proxy") === "edge-direct",
           invalidationProfile: s.invalidationProfileName || null,
           staleChunks: s.staleChunks || 0,
           payloadKb: s.payloadKb,

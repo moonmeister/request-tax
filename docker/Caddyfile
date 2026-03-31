@@ -17,6 +17,13 @@
 https://localhost:8443, https://localhost:8444 {
     tls internal
 
+    @edgePayload path /edge-payload/*
+    handle @edgePayload {
+        root * /srv/payloads
+        uri strip_prefix /edge-payload
+        file_server
+    }
+
     # Phase B and Phase C cache testing on the appropriate listener.
     @payload path /payload/*
     handle @payload {
