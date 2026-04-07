@@ -2,6 +2,9 @@
 
 This document reflects the current benchmark implementation and known caveats.
 
+Related planning note:
+- See DATA_PROCESSING_AND_CLEANUP_PLAN.md for the analysis-first cleanup plan (summaries, insights repurpose, and storage format decisions).
+
 ### Toolchain Details
 
 #### Server: Caddy + Cache Handler

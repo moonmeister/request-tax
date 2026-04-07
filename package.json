@@ -18,7 +18,12 @@
         "quick:c": "node harness/index.js --phase c --measured-runs 10 --warmup-runs 1",
         "quick:all": "node harness/sequencer.js --measured-runs 10 --warmup-runs 1",
         "verify:h3": "node scripts/verify-h3.mjs",
-        "insights": "node harness/insights.js",
+        "analyze:extract": "node harness/analysis/extract-runs.js",
+        "analyze:compare": "node harness/analysis/compare.js",
+        "analyze:charts": "node harness/analysis/chart-specs.js",
+        "analyze": "pnpm analyze:extract && pnpm analyze:compare && pnpm analyze:charts",
+        "report": "node harness/report/build-report.js",
+        "report:open": "node harness/report/build-report.js --open",
         "postinstall": "playwright install chromium"
     },
     "dependencies": {

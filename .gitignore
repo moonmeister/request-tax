@@ -2,7 +2,7 @@ node_modules/
 .DS_Store
 results/diagnostics/*
 results/raw/*.json
-results/analysis/*.csv
+results/analysis/*.json
 results/reports/*
 !results/raw/.gitkeep
 !results/analysis/.gitkeep
