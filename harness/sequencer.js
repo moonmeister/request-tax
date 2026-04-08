@@ -68,7 +68,7 @@ async function main() {
     console.log(`${"=".repeat(60)}`);
     console.log("\nResults available in:");
     console.log("  - Raw JSON: results/raw/*.json");
-    console.log("  - Summary CSV: results/analysis/phase-{a,b,c}-summary.csv");
+    console.log("  - Run: pnpm analyze && pnpm report:open");
     console.log();
   } catch (error) {
     console.error(`\n✗ Benchmark failed: ${error.message}`);

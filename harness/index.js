@@ -3,7 +3,6 @@ import path from "node:path";
 import minimist from "minimist";
 import { loadScenarios, expandScenarioMatrix } from "./utils/config.js";
 import { summarizeRuns } from "./utils/timing.js";
-import { writeScenarioSummaryCsv } from "./utils/csv-export.js";
 import {
   startStack,
   stopStack,
@@ -14,7 +13,6 @@ import { runBrowserScenario } from "./playwright/test-runner.js";
 
 const scenarioFile = path.resolve("harness", "scenarios.json");
 const rawDir = path.resolve("results", "raw");
-const analysisDir = path.resolve("results", "analysis");
 
 function scenarioId(s) {
   const cacheTag = s.cacheProfile ? `_${s.cacheProfile}` : "";
@@ -115,7 +113,8 @@ async function run() {
 
   if (phaseKey === "b") {
     // Phase B isolates cache-hit gains from backend-hop elimination.
-    scenarios = scenarios.filter((s) => s.profileName === "baseline");
+    // Include moderate-rtt so the origin hop has meaningful cost.
+    scenarios = scenarios.filter((s) => s.profileName === "moderate-rtt");
 
     // Expand scenarios with Phase B delivery profiles.
     const phase2Profiles = cfg.phase2Profiles || {
@@ -320,11 +319,6 @@ async function run() {
         `completed ${runScenarioId(s)} p95=${summary.p95.toFixed(2)}ms`,
       );
     }
-
-    await writeScenarioSummaryCsv(
-      summaryRows,
-      path.join(analysisDir, `phase-${phaseKey}-summary.csv`),
-    );
   } finally {
     await clearNetem();
     if (!args["no-stop"]) {
