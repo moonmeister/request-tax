@@ -141,8 +141,9 @@ async function run() {
   }
 
   if (phaseKey === "c") {
-    // Phase 3 tests cache invalidation behavior with mixed hit/miss patterns.
-    scenarios = scenarios.filter((s) => s.profileName === "baseline");
+    // Phase C tests cache invalidation with mixed hit/miss patterns.
+    // Use moderate-rtt so origin round-trips have meaningful cost.
+    scenarios = scenarios.filter((s) => s.profileName === "moderate-rtt");
 
     const phase3 = cfg.phase3 || {
       cacheTtlSeconds: 3600,

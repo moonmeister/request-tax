@@ -59,7 +59,7 @@ async function runOnce({ launchProtocol, protocolProfile, url, profile }) {
     });
 
     const page = await context.newPage();
-    page.setDefaultTimeout(240_000);
+    page.setDefaultTimeout(1_000_000);
 
     await page.goto(url, { waitUntil: "load" });
     await page.waitForFunction(() => !!window.__BENCH_RESULT);
