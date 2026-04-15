@@ -77,7 +77,7 @@ async function run() {
   const cliArgs = process.argv.slice(2).filter((a) => a !== "--");
   const args = minimist(cliArgs, {
     string: ["phase", "mode", "scenario"],
-    boolean: ["no-start", "no-stop", "smoke", "resume"],
+    boolean: ["no-start", "no-stop", "smoke"],
     default: {
       phase: "a",
       mode: "run",
@@ -190,24 +190,31 @@ async function run() {
     }
   }
 
-  // Resume: skip scenarios that already have a completed result file
-  if (args.resume) {
+  // Resume: skip scenarios that already have enough result files.
+  // --resume (or --resume true) requires at least 1 result; --resume N requires N.
+  if (args.resume !== false && args.resume !== undefined) {
+    const minResults = typeof args.resume === "number" ? args.resume : 1;
     let existingFiles = [];
     try {
       existingFiles = await fs.readdir(rawDir);
     } catch {
       // rawDir doesn't exist yet, nothing to skip
     }
-    const completedIds = new Set(
-      existingFiles
-        .filter((f) => f.endsWith(".json"))
-        .map((f) => f.replace(/_\d+\.json$/, "")),
-    );
+    const resultCounts = new Map();
+    for (const f of existingFiles) {
+      if (!f.endsWith(".json")) continue;
+      const id = f.replace(/_\d+\.json$/, "");
+      resultCounts.set(id, (resultCounts.get(id) || 0) + 1);
+    }
     const before = scenarios.length;
-    scenarios = scenarios.filter((s) => !completedIds.has(runScenarioId(s)));
+    scenarios = scenarios.filter(
+      (s) => (resultCounts.get(runScenarioId(s)) || 0) < minResults,
+    );
     const skipped = before - scenarios.length;
     if (skipped > 0) {
-      console.log(`resume: skipping ${skipped} already-completed scenario(s)`);
+      console.log(
+        `resume: skipping ${skipped} scenario(s) with >= ${minResults} result file(s)`,
+      );
     }
     if (scenarios.length === 0) {
       console.log("resume: all scenarios already complete");
