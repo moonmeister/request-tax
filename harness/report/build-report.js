@@ -197,14 +197,54 @@ function buildDistributionTraces(chart) {
   }));
 }
 
+function buildChunkCrossoverTraces(chart) {
+  const profiles = [...new Set(chart.data.map((d) => d.profileName))].sort();
+  const profileColors = {
+    baseline: "#636efa",
+    "moderate-rtt": "#00cc96",
+    "loss-0.5pct": "#ffa15a",
+    "loss-1pct": "#ef553b",
+    "loss-3pct": "#ab63fa",
+  };
+
+  return profiles.map((profile) => {
+    const rows = chart.data
+      .filter((d) => d.profileName === profile)
+      .sort((a, b) => a.chunkSizeKb - b.chunkSizeKb);
+
+    return {
+      x: rows.map((d) => d.chunkSizeKb),
+      y: rows.map((d) => d.delta_pct),
+      text: rows.map(
+        (d) =>
+          `${d.payloadKb}KB ÷ ${d.splitCount} = ${d.chunkSizeKb}KB/req<br>Δ${d.delta_pct.toFixed(1)}% (${d.delta_ms.toFixed(0)}ms)<br>H1: ${d.median_h1.toFixed(0)}ms  H3: ${d.median_h3.toFixed(0)}ms`,
+      ),
+      hoverinfo: "text",
+      name: profile,
+      type: "scatter",
+      mode: "markers+lines",
+      marker: {
+        size: 8,
+        color: profileColors[profile] || "#888",
+      },
+      line: {
+        color: profileColors[profile] || "#888",
+        width: 2,
+      },
+    };
+  });
+}
+
 function generateHtml(
   heatmap,
+  chunkCrossover,
   decomposition,
   retention,
   distributions,
   comparisons,
 ) {
   const heatmapSubplots = buildHeatmapTraces(heatmap);
+  const chunkCrossoverTraces = buildChunkCrossoverTraces(chunkCrossover);
   const decompSubplots = buildDecompositionTraces(decomposition);
   const retentionSubplots = buildRetentionTraces(retention);
   const distPanels = buildDistributionTraces(distributions);
@@ -268,6 +308,12 @@ ${heatmapSubplots
   </div>`,
   )
   .join("")}
+</div>
+
+<h2>Phase A – Chunk Size Crossover</h2>
+<p>${chunkCrossover.description}</p>
+<div class="chart-cell" style="margin: 1rem 0;">
+  <div class="plot" id="chunk-crossover" style="height: 500px;"></div>
 </div>
 
 <h2>Phase B – Cache Layer Decomposition</h2>
@@ -335,6 +381,17 @@ ${heatmapSubplots
   )
   .join("\n")}
 
+// Chunk-size crossover
+Plotly.newPlot("chunk-crossover", ${JSON.stringify(chunkCrossoverTraces)}, {
+  ...defaultLayout,
+  margin: { t: 20, b: 60, l: 70, r: 20 },
+  xaxis: { title: "Chunk Size per Request (KB)", type: "log", dtick: 1 },
+  yaxis: { title: "Δ% (H3 − H1)", zeroline: true, zerolinewidth: 2, zerolinecolor: "#888" },
+  showlegend: true,
+  legend: { orientation: "h", y: -0.15 },
+  shapes: [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 0, y1: 0, line: { color: "#888", width: 2, dash: "dash" } }],
+}, plotConfig);
+
 // Decomposition
 ${decompSubplots
   .map(
@@ -364,17 +421,25 @@ ${distPanels
 }
 
 async function main() {
-  const [heatmap, decomposition, retention, distributions, comparisons] =
-    await Promise.all([
-      loadChart("chart-phase-a-heatmap.json"),
-      loadChart("chart-phase-b-decomposition.json"),
-      loadChart("chart-phase-c-retention.json"),
-      loadChart("chart-distributions.json"),
-      loadChart("comparisons.json"),
-    ]);
+  const [
+    heatmap,
+    chunkCrossover,
+    decomposition,
+    retention,
+    distributions,
+    comparisons,
+  ] = await Promise.all([
+    loadChart("chart-phase-a-heatmap.json"),
+    loadChart("chart-phase-a-chunk-crossover.json"),
+    loadChart("chart-phase-b-decomposition.json"),
+    loadChart("chart-phase-c-retention.json"),
+    loadChart("chart-distributions.json"),
+    loadChart("comparisons.json"),
+  ]);
 
   const html = generateHtml(
     heatmap,
+    chunkCrossover,
     decomposition,
     retention,
     distributions,

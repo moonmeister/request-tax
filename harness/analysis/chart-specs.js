@@ -213,6 +213,50 @@ function buildDistributions(runs) {
   };
 }
 
+/**
+ * Phase A chunk-size crossover: shows H3 Δ% as a function of per-request
+ * chunk size (payload / splitCount), with one line per network profile.
+ * Makes the crossover point where H3 flips from faster to slower immediately
+ * visible — the real driver is individual chunk size, not payload or split
+ * count in isolation.
+ */
+function buildPhaseAChunkCrossover(comparisons) {
+  const rows = comparisons
+    .filter((c) => c.phase === "a")
+    .map((c) => ({
+      profileName: c.profileName,
+      payloadKb: c.payloadKb,
+      splitCount: c.splitCount,
+      chunkSizeKb: c.payloadKb / c.splitCount,
+      median_h1: c.median_h1,
+      median_h3: c.median_h3,
+      delta_ms: c.delta_ms,
+      delta_pct: c.delta_pct,
+      ci_lower: c.ci_lower,
+      ci_upper: c.ci_upper,
+      significant: c.significant,
+      practically_significant: c.practically_significant,
+    }))
+    .sort((a, b) => a.chunkSizeKb - b.chunkSizeKb);
+
+  return {
+    chartType: "line",
+    title: "H3 vs H1: Effect by Per-Request Chunk Size",
+    description:
+      "Each point shows the percentage change in median completion time (H3 − H1) as a function of the individual chunk size sent per request (payload ÷ split count). Lines are grouped by network profile. The zero line marks parity; below zero H3 is faster, above zero H1 is faster. This reveals that chunk size — not total payload or request count alone — is the primary driver of H3's advantage.",
+    axes: {
+      x: {
+        field: "chunkSizeKb",
+        label: "Chunk Size per Request (KB)",
+        scale: "log",
+      },
+      y: { field: "delta_pct", label: "Δ% (H3 − H1)" },
+      color: { field: "profileName", label: "Network Profile" },
+    },
+    data: rows,
+  };
+}
+
 async function main() {
   const [comparisonsFile, runsFile] = await Promise.all([
     loadJson("comparisons.json"),
@@ -224,6 +268,10 @@ async function main() {
 
   const charts = [
     ["chart-phase-a-heatmap.json", buildPhaseAHeatmap(comparisons)],
+    [
+      "chart-phase-a-chunk-crossover.json",
+      buildPhaseAChunkCrossover(comparisons),
+    ],
     ["chart-phase-b-decomposition.json", buildPhaseBDecomposition(comparisons)],
     ["chart-phase-c-retention.json", buildPhaseCRetention(comparisons)],
     ["chart-distributions.json", buildDistributions(runs)],
