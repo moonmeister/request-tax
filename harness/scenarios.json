@@ -33,6 +33,7 @@
         "1000": "1mb.bin",
         "10000": "10mb.bin"
     },
+    "backhaulDelayMs": 20,
     "requestMode": "parallel",
     "repetitions": {
         "small": 100,

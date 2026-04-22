@@ -8,6 +8,8 @@ import {
   stopStack,
   applyNetem,
   clearNetem,
+  applyBackhaulNetem,
+  clearBackhaulNetem,
 } from "./server-manager.js";
 import { runBrowserScenario } from "./playwright/test-runner.js";
 
@@ -77,7 +79,7 @@ async function run() {
   const cliArgs = process.argv.slice(2).filter((a) => a !== "--");
   const args = minimist(cliArgs, {
     string: ["phase", "mode", "scenario"],
-    boolean: ["no-start", "no-stop", "smoke"],
+    boolean: ["no-start", "no-stop", "smoke", "help"],
     default: {
       phase: "a",
       mode: "run",
@@ -85,8 +87,26 @@ async function run() {
       "no-stop": false,
       smoke: false,
       resume: false,
+      help: false,
     },
   });
+
+  if (args.help) {
+    console.log(`Usage: node harness/index.js [options]
+
+Options:
+  --phase <a|b|c>        Phase to run (default: "a")
+  --mode <run|insights>  Run mode (default: "run")
+  --scenario <id>        Filter to a specific scenario ID
+  --no-start             Skip starting the Docker stack
+  --no-stop              Skip stopping the Docker stack after run
+  --smoke                Run one minimal run per protocol
+  --resume [N]           Skip scenarios with >= N existing results (default: 1)
+  --measured-runs <N>    Override number of measured runs
+  --warmup-runs <N>      Override number of warmup runs
+  --help                 Show this help message`);
+    return;
+  }
 
   if (args.mode === "insights") {
     console.log(
@@ -100,15 +120,17 @@ async function run() {
   let scenarios = expandScenarioMatrix(cfg);
 
   if (phaseKey === "a") {
-    scenarios = scenarios.filter((s) =>
-      [
-        "baseline",
-        "moderate-rtt",
-        "loss-0.5pct",
-        "loss-1pct",
-        "loss-3pct",
-      ].includes(s.profileName),
-    );
+    scenarios = scenarios
+      .filter((s) =>
+        [
+          "baseline",
+          "moderate-rtt",
+          "loss-0.5pct",
+          "loss-1pct",
+          "loss-3pct",
+        ].includes(s.profileName),
+      )
+      .map((s) => ({ ...s, payloadMode: "edge-direct" }));
   }
 
   if (phaseKey === "b") {
@@ -279,6 +301,12 @@ async function run() {
     await startStack();
   }
 
+  // Apply constant backhaul delay only for Phase C.
+  // Phase A uses edge-direct (no origin hop); Phase B isolates protocol overhead.
+  if (phaseKey === "c" && cfg.backhaulDelayMs > 0) {
+    await applyBackhaulNetem(cfg.backhaulDelayMs);
+  }
+
   const summaryRows = [];
 
   try {
@@ -329,6 +357,7 @@ async function run() {
     }
   } finally {
     await clearNetem();
+    await clearBackhaulNetem();
     if (!args["no-stop"]) {
       await stopStack();
     }

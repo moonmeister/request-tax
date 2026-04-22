@@ -3,6 +3,9 @@ import path from "node:path";
 
 const composeFile = path.resolve("docker", "docker-compose.yml");
 let netemApplied = false;
+let backhaulNetemApplied = false;
+let frontendIface = null;
+let backendIface = null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,10 +69,41 @@ export async function startStack() {
 
   // Ensure the H3 listener is up before any h3 scenario starts.
   await waitForH3Listener();
+
+  // Resolve the frontend network interface inside the edge container.
+  // The default route points to the host (where published ports live),
+  // so it is always on the frontend network. Origin traffic routes
+  // through a separate backend interface that netem will not touch.
+  const { stdout: routeOut } = await run("docker", [
+    "exec",
+    "request-tax-edge",
+    "sh",
+    "-c",
+    "ip route | awk '/^default/{print $5}'",
+  ]);
+  frontendIface = routeOut.trim();
+  if (!frontendIface) {
+    throw new Error("could not resolve frontend interface in edge container");
+  }
+
+  // Resolve the backend interface (the other ethN interface).
+  const { stdout: ifaceList } = await run("docker", [
+    "exec",
+    "request-tax-edge",
+    "sh",
+    "-c",
+    `ip -o link show | awk -F': ' '{print $2}' | sed 's/@.*//' | grep -E '^eth[0-9]+$' | grep -v '^${frontendIface}$'`,
+  ]);
+  backendIface = ifaceList.trim().split("\n")[0];
+  if (!backendIface) {
+    throw new Error("could not resolve backend interface in edge container");
+  }
 }
 
 export async function stopStack() {
   await run("docker", ["compose", "-f", composeFile, "down"]);
+  frontendIface = null;
+  backendIface = null;
 }
 
 export async function applyNetem(netem) {
@@ -90,7 +124,7 @@ export async function applyNetem(netem) {
     "qdisc",
     "replace",
     "dev",
-    "eth0",
+    frontendIface,
     "root",
     "netem",
     ...spec,
@@ -112,7 +146,7 @@ export async function clearNetem() {
         "qdisc",
         "del",
         "dev",
-        "eth0",
+        frontendIface,
         "root",
       ]);
       break;
@@ -143,11 +177,60 @@ export async function clearNetem() {
     "qdisc",
     "show",
     "dev",
-    "eth0",
+    frontendIface,
   ]);
   if (stdout.includes("netem")) {
     throw new Error("netem qdisc still present after clearNetem");
   }
 
   netemApplied = false;
+}
+
+export async function applyBackhaulNetem(delayMs) {
+  if (!delayMs || delayMs <= 0) {
+    return;
+  }
+  await run("docker", [
+    "exec",
+    "request-tax-edge",
+    "tc",
+    "qdisc",
+    "replace",
+    "dev",
+    backendIface,
+    "root",
+    "netem",
+    "delay",
+    `${delayMs}ms`,
+  ]);
+  backhaulNetemApplied = true;
+}
+
+export async function clearBackhaulNetem() {
+  if (!backhaulNetemApplied) {
+    return;
+  }
+  try {
+    await run("docker", [
+      "exec",
+      "request-tax-edge",
+      "tc",
+      "qdisc",
+      "del",
+      "dev",
+      backendIface,
+      "root",
+    ]);
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (
+      !message.includes("No such file") &&
+      !message.includes("Cannot find device") &&
+      !message.includes("RTNETLINK answers: No such file") &&
+      !message.includes("Cannot delete qdisc with handle of zero")
+    ) {
+      throw error;
+    }
+  }
+  backhaulNetemApplied = false;
 }
