@@ -41,9 +41,8 @@ Key gaps to close:
 
 4. Tier 4, chart-ready artifacts:
 
-- results/analysis/chart-phase-a-heatmap.json
-- results/analysis/chart-phase-b-decomposition.json
-- results/analysis/chart-phase-c-retention.json
+- results/analysis/chart-phase-1-heatmap.json
+- results/analysis/chart-phase-2-retention.json
 - results/analysis/chart-distributions.json
 
 5. Tier 5, report output:
@@ -175,10 +174,9 @@ Responsibilities:
 
 Initial chart set:
 
-1. Phase A heatmap of relative H3 effect.
-2. Phase B decomposition (origin-no-cache to edge-cache-hit to edge-direct).
-3. Phase C retention under invalidation profiles.
-4. Distribution panel for representative cells.
+1. Phase 1 heatmap of relative H3 effect.
+2. Phase 2 retention under invalidation profiles.
+3. Distribution panel for representative cells.
 
 ### Stage 5: CLI And Workflow Integration
 
@@ -204,7 +202,7 @@ Ship first:
 
 1. Extraction plus validation.
 2. comparisons.json with CI and adjusted p-values.
-3. Phase A heatmap chart JSON.
+3. Phase 1 heatmap chart JSON.
 4. Report page with at least one chart and interpretation text.
 
 Defer until phase 2:

@@ -17,7 +17,7 @@ This study is designed to demonstrate two things: the old fewer-larger-request g
    - Execute scenario matrix and persist raw metrics.
    - Use a protocol-capable benchmark client path that supports H1 and H3 comparably.
    - Keep reproducible run metadata (protocol, payload, split strategy, latency profile, warmup/run id).
-4. Run Phase A baseline transfer tests:
+4. Run Phase 1 baseline transfer tests:
    - Browser cache disabled: Playwright incognito context + `Cache-Control: no-store` headers on all responses.
    - No edge cache, localhost profile first.
    - Add simulated RTT profile (30–50 ms via CDP `Network.emulateNetworkConditions`) as a second pass.
@@ -27,11 +27,10 @@ This study is designed to demonstrate two things: the old fewer-larger-request g
      - Node harness configures impairment via `docker exec` before each batch; no sudo on the host required.
      - Methodology caveat: Docker Desktop on macOS routes traffic through a hidden Linux VM, adding a small consistent latency floor (~0.5–2 ms). This does not bias H1 vs H3 comparisons (both traverse the same path), but absolute latency numbers will be slightly higher than true localhost. Document in report.
    - Repetitions: 100 for 10/100 KB, 50 for 1 MB, 30 for 10 MB, with 5 warmups discarded.
-5. Run Phase B cache-behavior analysis (hybrid: real cache layer):
-   - Caddy acts as the CDN equivalent with caching enabled and configurable `Cache-Control` TTLs.
+5. Run Phase 2 cache invalidation analysis:
+   - Caddy acts as the CDN equivalent with caching enabled.
    - Browser cache remains disabled (incognito + no-store headers) to isolate edge cache behavior.
-   - Test multiple invalidation profiles: long TTL (stable resource), short TTL (frequently updated), and mixed (realistic API surface).
-   - Optional Phase B variant: re-run with browser cache enabled to model full realistic behavior and compare delta.
+   - Test invalidation profiles: full purge, partial purge (20%, 40%) to model realistic content churn.
 6. Add Early Hints variant (selected option):
    - Test small-request strategy with and without Early Hints in both protocols.
    - Measure whether Early Hints reduces aggregate completion enough to strengthen the split-request recommendation under H3.
@@ -69,4 +68,4 @@ This study is designed to demonstrate two things: the old fewer-larger-request g
 **Further considerations**
 
 1. If Early Hints support in chosen client tooling is limited, use browser-based verification for that phase and clearly annotate comparability.
-2. If team confidence requires direct asset evidence, add a small Phase C with one JS/CSS bundle scenario after baseline conclusions are established.
+2. If team confidence requires direct asset evidence, add a small Phase 3 with one JS/CSS bundle scenario after baseline conclusions are established.

@@ -3,6 +3,7 @@
 This document reflects the current benchmark implementation and known caveats.
 
 Related planning note:
+
 - See DATA_PROCESSING_AND_CLEANUP_PLAN.md for the analysis-first cleanup plan (summaries, insights repurpose, and storage format decisions).
 
 ### Toolchain Details
@@ -16,8 +17,8 @@ Related planning note:
   - `:8443` is HTTP/1.1 only (`protocols h1`)
   - `:8444` is HTTP/3 only (`protocols h3`)
   - HTTP/2 is intentionally disabled for this benchmark.
-- Phase B control path:
-  - `/edge-payload/*` is served directly by Caddy from local payload files, bypassing both origin fetch and edge cache.
+- Phase 1 serves payloads directly from Caddy (`/edge-payload/*`), bypassing origin.
+- Phase 2 uses origin-backed cache with invalidation (`/payload/*`).
 
 #### Origin: Node HTTP Server
 
@@ -50,23 +51,9 @@ Network impairment is applied with Linux `tc netem` inside the edge container vi
 
 CDP throttling remains supported by the runner when a profile provides `cdp`, but the default RTT/loss scenarios now use netem for both protocols.
 
-### Caching Phases
+### Caching Phase
 
-#### Phase B: Cache And Backhaul Attribution Controls
-
-- Uses three controls to separate cache-hit gains from backend-hop elimination.
-- Profiles:
-  - `origin-no-cache`: origin-backed control with no edge cache
-  - `edge-cache-hit`: origin-backed payloads served from edge cache with very long TTL
-  - `edge-direct`: payloads served directly by Caddy with no origin hop
-- Isolation method:
-  - Per-scenario cache namespace (`cacheScope`) is included in payload URLs.
-  - This prevents cross-scenario cache bleed without requiring Caddy restart or purge APIs.
-- Interpretation:
-  - `origin-no-cache` vs `edge-cache-hit` shows the combined effect of edge caching and avoiding origin fetch on hits.
-  - `edge-cache-hit` vs `edge-direct` shows how much of that gain is simply backend-hop elimination versus cache behavior itself.
-
-#### Phase C: Selective Invalidation
+#### Phase 2: Selective Invalidation
 
 - Workflow:
   1. Warm cache with `warm-<token>` version URLs.
@@ -94,7 +81,6 @@ request-tax/
 │   ├── scenarios.json
 │   ├── server-manager.js
 │   ├── sequencer.js
-│   ├── insights.js
 │   ├── playwright/
 │   │   ├── test-runner.js
 │   └── utils/
@@ -114,8 +100,7 @@ Primary config file: `harness/scenarios.json`
 - Payload matrix and split strategies
 - Repetitions and warmup count
 - Protocol list (`h1`, `h3`)
-- Phase B delivery profiles (`phase2Profiles`)
-- Phase C invalidation profiles (`phase3.invalidationProfiles`)
+- Phase 2 invalidation profiles (`phase2.invalidationProfiles`)
 - Network profiles (`profiles`) with `cdp` and/or `netem`
 
 ### Execution Scripts
@@ -123,15 +108,12 @@ Primary config file: `harness/scenarios.json`
 From `package.json`:
 
 - `pnpm benchmark`
-- `pnpm phase:a`
-- `pnpm phase:b`
-- `pnpm phase:c`
-- `pnpm smoke:a`
-- `pnpm smoke:b`
-- `pnpm smoke:c`
+- `pnpm phase:1`
+- `pnpm phase:2`
+- `pnpm smoke:1`
+- `pnpm smoke:2`
 - `pnpm smoke:all`
 - `pnpm run:all`
-- `pnpm insights`
 
 ### Output Format
 
@@ -149,15 +131,14 @@ Metadata includes:
 
 1. Docker Desktop on macOS adds a small latency floor due to virtualization. This affects absolute timings more than relative H1 vs H3 deltas.
 2. Browser-level measurement includes renderer/scheduling overhead (small fixed noise floor).
-3. Cache-handler purge APIs are not relied upon for correctness. Phase B isolation is achieved through URL namespacing instead.
+3. Cache-handler purge APIs are not relied upon for correctness. Phase 2 isolation is achieved through URL namespacing instead.
 
 ### Locked Decisions
 
 1. Compare HTTP/1.1 vs HTTP/3 only (no HTTP/2).
 2. Enforce protocol separation by dedicated ports (`8443` h1, `8444` h3).
-3. Use real edge cache behavior for Phase B.
-4. Use deterministic URL-version invalidation for Phase C.
-5. Keep stack lifecycle harness-managed (`startStack`, `stopStack`, `applyNetem`, `clearNetem`).
+3. Use deterministic URL-version invalidation for Phase 2.
+4. Keep stack lifecycle harness-managed (`startStack`, `stopStack`, `applyNetem`, `clearNetem`).
 
 ## H3/QUIC Debugging & Certificate Pinning
 
