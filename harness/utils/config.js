@@ -17,7 +17,7 @@ export function expandScenarioMatrix(cfg) {
   for (const payloadKb of cfg.payloads) {
     const splitCounts = cfg.splitStrategies[String(payloadKb)] || [1];
     for (const splitCount of splitCounts) {
-      const chunkKb = Math.floor(payloadKb / splitCount);
+      const chunkKb = payloadKb / splitCount;
       const file = cfg.fixtureMap[String(chunkKb)];
       if (!file) {
         throw new Error(
