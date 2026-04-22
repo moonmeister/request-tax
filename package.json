@@ -4,7 +4,6 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "benchmark": "node harness/index.js",
         "phase:1": "node harness/index.js --phase 1",
         "phase:2": "node harness/index.js --phase 2",
         "run:all": "node harness/sequencer.js",
