@@ -2,8 +2,12 @@ node_modules/
 .DS_Store
 results/diagnostics/*
 results/raw/*.json
+results/raw-archive/*.json
 results/analysis/*.json
 results/reports/*
 !results/raw/.gitkeep
 !results/analysis/.gitkeep
 !results/reports/.gitkeep
+
+
+dist/

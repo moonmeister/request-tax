@@ -28,23 +28,35 @@ function chartIframe(filename, height = "400px") {
 function generateHtml(manifest, comparisons) {
   const total = comparisons.data.length;
   const sig = comparisons.data.filter((c) => c.significant).length;
-  const pract = comparisons.data.filter((c) => c.practically_significant).length;
+  const pract = comparisons.data.filter(
+    (c) => c.practically_significant,
+  ).length;
   const config = comparisons.meta.analysisConfig;
-  const meanDelta = total > 0
-    ? (comparisons.data.reduce((s, c) => s + c.delta_pct, 0) / total).toFixed(1) + "%"
-    : "–";
+  const meanDelta =
+    total > 0
+      ? (comparisons.data.reduce((s, c) => s + c.delta_pct, 0) / total).toFixed(
+          1,
+        ) + "%"
+      : "–";
 
   // Group charts by prefix
   const heatmaps = manifest.filter((f) => f.startsWith("phase-1-heatmap-"));
-  const crossover = manifest.filter((f) => f.startsWith("phase-1-chunk-crossover"));
+  const crossover = manifest.filter((f) =>
+    f.startsWith("phase-1-chunk-crossover"),
+  );
   const retentions = manifest.filter((f) => f.startsWith("phase-2-retention-"));
   const dists = manifest.filter((f) => f.startsWith("distribution-"));
 
   function chartGrid(files, height = "400px") {
-    return `<div class="chart-grid">\n${files.map((f) => {
-      const label = f.replace(/\.html$/, "").replace(/^[a-z-]+-/, "").replace(/-/g, " ");
-      return `  <div class="chart-cell">\n    <h3>${label}</h3>\n    ${chartIframe(f, height)}\n  </div>`;
-    }).join("\n")}\n</div>`;
+    return `<div class="chart-grid">\n${files
+      .map((f) => {
+        const label = f
+          .replace(/\.html$/, "")
+          .replace(/^[a-z-]+-/, "")
+          .replace(/-/g, " ");
+        return `  <div class="chart-cell">\n    <h3>${label}</h3>\n    ${chartIframe(f, height)}\n  </div>`;
+      })
+      .join("\n")}\n</div>`;
   }
 
   return `<!DOCTYPE html>
@@ -82,20 +94,36 @@ function generateHtml(manifest, comparisons) {
   <div class="stat"><div class="value">${meanDelta}</div><div class="label">Mean Δ%</div></div>
 </div>
 
-${heatmaps.length > 0 ? `<h2>Phase 1 – Request Granularity Heatmap</h2>
+${
+  heatmaps.length > 0
+    ? `<h2>Phase 1 – Request Granularity Heatmap</h2>
 <p>★ = practically significant, ● = statistically significant</p>
-${chartGrid(heatmaps, "400px")}` : ""}
+${chartGrid(heatmaps, "400px")}`
+    : ""
+}
 
-${crossover.length > 0 ? `<h2>Phase 1 – Chunk Size Crossover</h2>
+${
+  crossover.length > 0
+    ? `<h2>Phase 1 – Chunk Size Crossover</h2>
 <div class="chart-cell" style="margin: 1rem 0;">
   ${chartIframe(crossover[0], "500px")}
-</div>` : ""}
+</div>`
+    : ""
+}
 
-${retentions.length > 0 ? `<h2>Phase 2 – Invalidation Retention</h2>
-${chartGrid(retentions, "400px")}` : ""}
+${
+  retentions.length > 0
+    ? `<h2>Phase 2 – Invalidation Retention</h2>
+${chartGrid(retentions, "400px")}`
+    : ""
+}
 
-${dists.length > 0 ? `<h2>Distributions – Representative Scenarios</h2>
-${chartGrid(dists, "350px")}` : ""}
+${
+  dists.length > 0
+    ? `<h2>Distributions – Representative Scenarios</h2>
+${chartGrid(dists, "350px")}`
+    : ""
+}
 
 <div class="config">
   <strong>Analysis config:</strong>
