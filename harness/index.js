@@ -78,10 +78,10 @@ async function runSingleScenario(s) {
 async function run() {
   const cliArgs = process.argv.slice(2).filter((a) => a !== "--");
   const args = minimist(cliArgs, {
-    string: ["phase", "mode", "scenario"],
+    string: ["phase", "scenario"],
     boolean: ["no-start", "no-stop", "smoke", "help"],
     default: {
-      phase: "a",
+      phase: "1",
       mode: "run",
       "no-start": false,
       "no-stop": false,
@@ -95,8 +95,7 @@ async function run() {
     console.log(`Usage: node harness/index.js [options]
 
 Options:
-  --phase <a|b|c>        Phase to run (default: "a")
-  --mode <run|insights>  Run mode (default: "run")
+  --phase <1|2>          Phase to run (default: "1")
   --scenario <id>        Filter to a specific scenario ID
   --no-start             Skip starting the Docker stack
   --no-stop              Skip stopping the Docker stack after run
@@ -108,18 +107,11 @@ Options:
     return;
   }
 
-  if (args.mode === "insights") {
-    console.log(
-      "Insights mode currently exports from in-memory run only. Run benchmark phases first.",
-    );
-    return;
-  }
-
   const cfg = await loadScenarios(scenarioFile);
   const phaseKey = args.phase;
   let scenarios = expandScenarioMatrix(cfg);
 
-  if (phaseKey === "a") {
+  if (phaseKey === "1") {
     scenarios = scenarios
       .filter((s) =>
         [
@@ -133,41 +125,12 @@ Options:
       .map((s) => ({ ...s, payloadMode: "edge-direct" }));
   }
 
-  if (phaseKey === "b") {
-    // Phase B isolates cache-hit gains from backend-hop elimination.
-    // Include moderate-rtt so the origin hop has meaningful cost.
-    scenarios = scenarios.filter((s) => s.profileName === "moderate-rtt");
-
-    // Expand scenarios with Phase B delivery profiles.
-    const phase2Profiles = cfg.phase2Profiles || {
-      "origin-no-cache": { ttlSeconds: 0, payloadMode: "origin-proxy" },
-      "edge-cache-hit": {
-        ttlSeconds: 31536000,
-        payloadMode: "origin-proxy",
-      },
-      "edge-direct": { ttlSeconds: 0, payloadMode: "edge-direct" },
-    };
-
-    const scenariosWithCache = [];
-    for (const s of scenarios) {
-      for (const [cacheName, cacheConfig] of Object.entries(phase2Profiles)) {
-        scenariosWithCache.push({
-          ...s,
-          cacheProfile: cacheName,
-          cacheTtl: cacheConfig.ttlSeconds,
-          payloadMode: cacheConfig.payloadMode || "origin-proxy",
-        });
-      }
-    }
-    scenarios = scenariosWithCache;
-  }
-
-  if (phaseKey === "c") {
-    // Phase C tests cache invalidation with mixed hit/miss patterns.
+  if (phaseKey === "2") {
+    // Phase 2 tests cache invalidation with mixed hit/miss patterns.
     // Use moderate-rtt so origin round-trips have meaningful cost.
     scenarios = scenarios.filter((s) => s.profileName === "moderate-rtt");
 
-    const phase3 = cfg.phase3 || {
+    const phase2 = cfg.phase2 || {
       cacheTtlSeconds: 3600,
       invalidationProfiles: {
         "full-purge": { staleRatio: 1 },
@@ -178,7 +141,7 @@ Options:
     const scenariosWithInvalidation = [];
     for (const s of scenarios) {
       for (const [name, invalidation] of Object.entries(
-        phase3.invalidationProfiles,
+        phase2.invalidationProfiles,
       )) {
         const staleChunks = Math.max(
           1,
@@ -190,7 +153,7 @@ Options:
         scenariosWithInvalidation.push({
           ...s,
           cacheProfile: "invalidation",
-          cacheTtl: Number(phase3.cacheTtlSeconds || 3600),
+          cacheTtl: Number(phase2.cacheTtlSeconds || 3600),
           invalidationProfileName: name,
           staleChunks,
         });
@@ -301,9 +264,9 @@ Options:
     await startStack();
   }
 
-  // Apply constant backhaul delay only for Phase C.
-  // Phase A uses edge-direct (no origin hop); Phase B isolates protocol overhead.
-  if (phaseKey === "c" && cfg.backhaulDelayMs > 0) {
+  // Apply constant backhaul delay only for Phase 2 (invalidation).
+  // Phase 1 uses edge-direct (no origin hop).
+  if (phaseKey === "2" && cfg.backhaulDelayMs > 0) {
     await applyBackhaulNetem(cfg.backhaulDelayMs);
   }
 
@@ -311,12 +274,8 @@ Options:
 
   try {
     for (const s of scenarios) {
-      // Keep Phase B cache comparisons isolated by using a per-scenario cache namespace.
-      const scopedScenario =
-        phaseKey === "b" ? { ...s, cacheScope: scenarioId(s) } : s;
-
       let runs;
-      runs = await runSingleScenario(scopedScenario);
+      runs = await runSingleScenario(s);
       const summary = summarizeRuns(runs);
 
       const payload = {
@@ -328,7 +287,7 @@ Options:
           protocol: s.protocol,
           profileName: s.profileName,
           cacheProfile: s.cacheProfile || null,
-          cacheScope: scopedScenario.cacheScope || null,
+          cacheScope: s.cacheScope || null,
           cacheTtl: s.cacheTtl || 0,
           payloadMode: s.payloadMode || "origin-proxy",
           originBypassed: (s.payloadMode || "origin-proxy") === "edge-direct",

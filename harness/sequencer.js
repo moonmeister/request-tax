@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Sequencer: Run benchmark phases in order (A → B → C)
+ * Sequencer: Run benchmark phases in order (1 → 2)
  * with clean messaging and proper container lifecycle management.
  */
 
@@ -54,7 +54,7 @@ function runPhase(phase) {
 }
 
 async function main() {
-  const phases = ["a", "b", "c"];
+  const phases = ["1", "2"];
   const startTime = Date.now();
 
   try {

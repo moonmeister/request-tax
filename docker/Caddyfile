@@ -24,7 +24,7 @@ https://localhost:8443, https://localhost:8444 {
         file_server
     }
 
-    # Phase B and Phase C cache testing on the appropriate listener.
+    # Phase 2 cache testing (invalidation scenarios).
     @payload path /payload/*
     handle @payload {
         cache

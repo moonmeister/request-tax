@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Build a static HTML report from chart-ready JSON artifacts.
+ * Build a static HTML report from chart HTML files and analysis data.
  *
- * Input:  results/analysis/chart-*.json
+ * Prereq: run build-charts.js first to generate results/charts/*.html
+ * Input:  results/charts/manifest.json, results/analysis/comparisons.json
  * Output: results/reports/index.html
  */
 
@@ -13,249 +14,38 @@ import { exec } from "node:child_process";
 import minimist from "minimist";
 
 const ANALYSIS_DIR = path.resolve("results", "analysis");
+const CHARTS_DIR = path.resolve("results", "charts");
 const REPORTS_DIR = path.resolve("results", "reports");
 
-async function loadChart(name) {
-  return JSON.parse(await fs.readFile(path.join(ANALYSIS_DIR, name), "utf8"));
+async function loadJson(filePath) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
 
-function buildHeatmapTraces(chart) {
-  const profiles = [...new Set(chart.data.map((d) => d.profileName))].sort();
-  const subplots = [];
-
-  for (const profile of profiles) {
-    const rows = chart.data.filter((d) => d.profileName === profile);
-    const payloads = [...new Set(rows.map((d) => d.payloadKb))].sort(
-      (a, b) => a - b,
-    );
-    const splits = [...new Set(rows.map((d) => d.splitCount))].sort(
-      (a, b) => a - b,
-    );
-
-    const z = [];
-    const text = [];
-    for (const p of payloads) {
-      const zRow = [];
-      const tRow = [];
-      for (const s of splits) {
-        const cell = rows.find((d) => d.payloadKb === p && d.splitCount === s);
-        if (cell) {
-          zRow.push(cell.delta_pct);
-          const sig = cell.practically_significant
-            ? "★"
-            : cell.significant
-              ? "●"
-              : "";
-          tRow.push(
-            `${cell.delta_pct.toFixed(1)}%<br>${cell.delta_ms.toFixed(1)}ms<br>CI [${cell.ci_lower.toFixed(1)}, ${cell.ci_upper.toFixed(1)}] ${sig}`,
-          );
-        } else {
-          zRow.push(null);
-          tRow.push("");
-        }
-      }
-      z.push(zRow);
-      text.push(tRow);
-    }
-
-    subplots.push({
-      profile,
-      trace: {
-        z,
-        x: splits.map((s) => (s === 1 ? "1 request" : `${s} requests`)),
-        y: payloads.map((p) => `${p}KB`),
-        text,
-        hoverinfo: "text",
-        type: "heatmap",
-        colorscale: [
-          [0, "#1a9850"],
-          [0.5, "#ffffbf"],
-          [1, "#d73027"],
-        ],
-        zmid: 0,
-        colorbar: { title: "Δ%" },
-      },
-    });
-  }
-
-  return subplots;
+function chartIframe(filename, height = "400px") {
+  return `<iframe src="../charts/${filename}" style="width:100%;height:${height};border:none;" loading="lazy"></iframe>`;
 }
 
-function buildDecompositionTraces(chart) {
-  const payloads = [...new Set(chart.data.map((d) => d.payloadKb))].sort(
-    (a, b) => a - b,
-  );
-  const cacheOrder = ["origin-no-cache", "edge-cache-hit", "edge-direct"];
-  const subplots = [];
-
-  for (const payload of payloads) {
-    const rows = chart.data
-      .filter((d) => d.payloadKb === payload)
-      .sort(
-        (a, b) =>
-          cacheOrder.indexOf(a.cacheProfile) -
-          cacheOrder.indexOf(b.cacheProfile),
-      );
-
-    const splits = [...new Set(rows.map((d) => d.splitCount))].sort(
-      (a, b) => a - b,
-    );
-    const traces = [];
-
-    for (const split of splits) {
-      const splitRows = rows.filter((d) => d.splitCount === split);
-      traces.push({
-        x: splitRows.map((d) => d.cacheProfile),
-        y: splitRows.map((d) => d.delta_ms),
-        error_y: {
-          type: "data",
-          symmetric: false,
-          array: splitRows.map((d) => d.ci_upper - d.delta_ms),
-          arrayminus: splitRows.map((d) => d.delta_ms - d.ci_lower),
-        },
-        name: `${split}x`,
-        type: "scatter",
-        mode: "markers",
-        marker: { size: 10 },
-      });
-    }
-
-    subplots.push({ payload, traces });
-  }
-
-  return subplots;
-}
-
-function buildRetentionTraces(chart) {
-  const payloads = [...new Set(chart.data.map((d) => d.payloadKb))].sort(
-    (a, b) => a - b,
-  );
-  const invalOrder = [
-    "full-purge",
-    "partial-purge-20pct",
-    "partial-purge-40pct",
-  ];
-  const subplots = [];
-
-  for (const payload of payloads) {
-    const rows = chart.data.filter((d) => d.payloadKb === payload);
-    const splits = [...new Set(rows.map((d) => d.splitCount))].sort(
-      (a, b) => a - b,
-    );
-    const traces = [];
-
-    for (const split of splits) {
-      const splitRows = rows
-        .filter((d) => d.splitCount === split)
-        .sort(
-          (a, b) =>
-            invalOrder.indexOf(a.invalidationProfile) -
-            invalOrder.indexOf(b.invalidationProfile),
-        );
-
-      traces.push({
-        x: splitRows.map((d) => d.invalidationProfile),
-        y: splitRows.map((d) => d.delta_ms),
-        error_y: {
-          type: "data",
-          symmetric: false,
-          array: splitRows.map((d) => d.ci_upper - d.delta_ms),
-          arrayminus: splitRows.map((d) => d.delta_ms - d.ci_lower),
-        },
-        name: `${split}x`,
-        type: "scatter",
-        mode: "markers+lines",
-        marker: { size: 8 },
-      });
-    }
-
-    subplots.push({ payload, traces });
-  }
-
-  return subplots;
-}
-
-function buildDistributionTraces(chart) {
-  return chart.data.map((panel) => ({
-    label: panel.label,
-    traces: [
-      {
-        y: panel.h1.values,
-        name: "H1",
-        type: "box",
-        boxpoints: "outliers",
-        marker: { color: "#636efa" },
-      },
-      {
-        y: panel.h3.values,
-        name: "H3",
-        type: "box",
-        boxpoints: "outliers",
-        marker: { color: "#ef553b" },
-      },
-    ],
-  }));
-}
-
-function buildChunkCrossoverTraces(chart) {
-  const profiles = [...new Set(chart.data.map((d) => d.profileName))].sort();
-  const profileColors = {
-    baseline: "#636efa",
-    "moderate-rtt": "#00cc96",
-    "loss-0.5pct": "#ffa15a",
-    "loss-1pct": "#ef553b",
-    "loss-3pct": "#ab63fa",
-  };
-
-  return profiles.map((profile) => {
-    const rows = chart.data
-      .filter((d) => d.profileName === profile)
-      .sort((a, b) => a.chunkSizeKb - b.chunkSizeKb);
-
-    return {
-      x: rows.map((d) => d.chunkSizeKb),
-      y: rows.map((d) => d.delta_pct),
-      text: rows.map(
-        (d) =>
-          `${d.payloadKb}KB ÷ ${d.splitCount} = ${d.chunkSizeKb}KB/req<br>Δ${d.delta_pct.toFixed(1)}% (${d.delta_ms.toFixed(0)}ms)<br>H1: ${d.median_h1.toFixed(0)}ms  H3: ${d.median_h3.toFixed(0)}ms`,
-      ),
-      hoverinfo: "text",
-      name: profile,
-      type: "scatter",
-      mode: "markers+lines",
-      marker: {
-        size: 8,
-        color: profileColors[profile] || "#888",
-      },
-      line: {
-        color: profileColors[profile] || "#888",
-        width: 2,
-      },
-    };
-  });
-}
-
-function generateHtml(
-  heatmap,
-  chunkCrossover,
-  decomposition,
-  retention,
-  distributions,
-  comparisons,
-) {
-  const heatmapSubplots = buildHeatmapTraces(heatmap);
-  const chunkCrossoverTraces = buildChunkCrossoverTraces(chunkCrossover);
-  const decompSubplots = buildDecompositionTraces(decomposition);
-  const retentionSubplots = buildRetentionTraces(retention);
-  const distPanels = buildDistributionTraces(distributions);
-
-  // Summary stats
+function generateHtml(manifest, comparisons) {
   const total = comparisons.data.length;
   const sig = comparisons.data.filter((c) => c.significant).length;
-  const pract = comparisons.data.filter(
-    (c) => c.practically_significant,
-  ).length;
+  const pract = comparisons.data.filter((c) => c.practically_significant).length;
   const config = comparisons.meta.analysisConfig;
+  const meanDelta = total > 0
+    ? (comparisons.data.reduce((s, c) => s + c.delta_pct, 0) / total).toFixed(1) + "%"
+    : "–";
+
+  // Group charts by prefix
+  const heatmaps = manifest.filter((f) => f.startsWith("phase-1-heatmap-"));
+  const crossover = manifest.filter((f) => f.startsWith("phase-1-chunk-crossover"));
+  const retentions = manifest.filter((f) => f.startsWith("phase-2-retention-"));
+  const dists = manifest.filter((f) => f.startsWith("distribution-"));
+
+  function chartGrid(files, height = "400px") {
+    return `<div class="chart-grid">\n${files.map((f) => {
+      const label = f.replace(/\.html$/, "").replace(/^[a-z-]+-/, "").replace(/-/g, " ");
+      return `  <div class="chart-cell">\n    <h3>${label}</h3>\n    ${chartIframe(f, height)}\n  </div>`;
+    }).join("\n")}\n</div>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -263,13 +53,12 @@ function generateHtml(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Request Tax – Benchmark Report</title>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafafa; color: #222; line-height: 1.5; padding: 2rem; max-width: 1400px; margin: 0 auto; }
   h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
   h2 { font-size: 1.3rem; margin: 2rem 0 0.5rem; border-bottom: 2px solid #ddd; padding-bottom: 0.3rem; }
-  h3 { font-size: 1.1rem; margin: 1rem 0 0.3rem; color: #555; }
+  h3 { font-size: 1.1rem; margin: 1rem 0 0.3rem; color: #555; text-transform: capitalize; }
   p, .note { margin: 0.5rem 0; color: #555; font-size: 0.9rem; }
   .summary { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.5rem; margin: 1rem 0; display: flex; gap: 2rem; flex-wrap: wrap; }
   .summary .stat { text-align: center; }
@@ -277,8 +66,6 @@ function generateHtml(
   .summary .stat .label { font-size: 0.8rem; color: #888; text-transform: uppercase; }
   .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 1rem; margin: 1rem 0; }
   .chart-cell { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
-  .chart-cell .plot { width: 100%; height: 350px; }
-  .legend-note { font-size: 0.8rem; color: #888; margin-top: 0.5rem; }
   .config { font-size: 0.8rem; color: #999; margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; }
 </style>
 </head>
@@ -292,71 +79,23 @@ function generateHtml(
   <div class="stat"><div class="value">${total}</div><div class="label">Comparisons</div></div>
   <div class="stat"><div class="value">${sig}</div><div class="label">Significant</div></div>
   <div class="stat"><div class="value">${pract}</div><div class="label">Practically Significant</div></div>
-  <div class="stat"><div class="value">${comparisons.data.length > 0 ? (comparisons.data.reduce((s, c) => s + c.delta_pct, 0) / comparisons.data.length).toFixed(1) + "%" : "–"}</div><div class="label">Mean Δ%</div></div>
+  <div class="stat"><div class="value">${meanDelta}</div><div class="label">Mean Δ%</div></div>
 </div>
 
-<h2>Phase A – Request Granularity Heatmap</h2>
-<p>${heatmap.description}</p>
-<p class="legend-note">★ = practically significant, ● = statistically significant</p>
-<div class="chart-grid">
-${heatmapSubplots
-  .map(
-    (sp, i) => `
-  <div class="chart-cell">
-    <h3>${sp.profile}</h3>
-    <div class="plot" id="heatmap-${i}"></div>
-  </div>`,
-  )
-  .join("")}
-</div>
+${heatmaps.length > 0 ? `<h2>Phase 1 – Request Granularity Heatmap</h2>
+<p>★ = practically significant, ● = statistically significant</p>
+${chartGrid(heatmaps, "400px")}` : ""}
 
-<h2>Phase A – Chunk Size Crossover</h2>
-<p>${chunkCrossover.description}</p>
+${crossover.length > 0 ? `<h2>Phase 1 – Chunk Size Crossover</h2>
 <div class="chart-cell" style="margin: 1rem 0;">
-  <div class="plot" id="chunk-crossover" style="height: 500px;"></div>
-</div>
+  ${chartIframe(crossover[0], "500px")}
+</div>` : ""}
 
-<h2>Phase B – Cache Layer Decomposition</h2>
-<p>${decomposition.description}</p>
-<div class="chart-grid">
-${decompSubplots
-  .map(
-    (sp, i) => `
-  <div class="chart-cell">
-    <h3>${sp.payload}KB</h3>
-    <div class="plot" id="decomp-${i}"></div>
-  </div>`,
-  )
-  .join("")}
-</div>
+${retentions.length > 0 ? `<h2>Phase 2 – Invalidation Retention</h2>
+${chartGrid(retentions, "400px")}` : ""}
 
-<h2>Phase C – Invalidation Retention</h2>
-<p>${retention.description}</p>
-<div class="chart-grid">
-${retentionSubplots
-  .map(
-    (sp, i) => `
-  <div class="chart-cell">
-    <h3>${sp.payload}KB</h3>
-    <div class="plot" id="retention-${i}"></div>
-  </div>`,
-  )
-  .join("")}
-</div>
-
-<h2>Distributions – Representative Scenarios</h2>
-<p>${distributions.description}</p>
-<div class="chart-grid">
-${distPanels
-  .map(
-    (p, i) => `
-  <div class="chart-cell">
-    <h3>${p.label}</h3>
-    <div class="plot" id="dist-${i}"></div>
-  </div>`,
-  )
-  .join("")}
-</div>
+${dists.length > 0 ? `<h2>Distributions – Representative Scenarios</h2>
+${chartGrid(dists, "350px")}` : ""}
 
 <div class="config">
   <strong>Analysis config:</strong>
@@ -369,85 +108,20 @@ ${distPanels
   practical thresholds: |Δ%|&gt;${config.practicalThresholds.deltaPctMin} or |Δms|&gt;${config.practicalThresholds.deltaMsMin}
 </div>
 
-<script>
-const plotConfig = { responsive: true, displayModeBar: false };
-const defaultLayout = { margin: { t: 20, b: 40, l: 60, r: 20 }, font: { size: 11 } };
-
-// Heatmaps
-${heatmapSubplots
-  .map(
-    (sp, i) =>
-      `Plotly.newPlot("heatmap-${i}", [${JSON.stringify(sp.trace)}], {...defaultLayout, margin: { t: 20, b: 50, l: 70, r: 80 }, xaxis: { title: "Requests", type: "category" }, yaxis: { title: "Payload" }}, plotConfig);`,
-  )
-  .join("\n")}
-
-// Chunk-size crossover
-Plotly.newPlot("chunk-crossover", ${JSON.stringify(chunkCrossoverTraces)}, {
-  ...defaultLayout,
-  margin: { t: 20, b: 60, l: 70, r: 20 },
-  xaxis: { title: "Chunk Size per Request (KB)", type: "log", dtick: 1 },
-  yaxis: { title: "Δ% (H3 − H1)", zeroline: true, zerolinewidth: 2, zerolinecolor: "#888" },
-  showlegend: true,
-  legend: { orientation: "h", y: -0.15 },
-  shapes: [{ type: "line", x0: 0, x1: 1, xref: "paper", y0: 0, y1: 0, line: { color: "#888", width: 2, dash: "dash" } }],
-}, plotConfig);
-
-// Decomposition
-${decompSubplots
-  .map(
-    (sp, i) =>
-      `Plotly.newPlot("decomp-${i}", ${JSON.stringify(sp.traces)}, {...defaultLayout, yaxis: { title: "Δ median (ms)", zeroline: true }, showlegend: true, legend: { orientation: "h", y: -0.2 }}, plotConfig);`,
-  )
-  .join("\n")}
-
-// Retention
-${retentionSubplots
-  .map(
-    (sp, i) =>
-      `Plotly.newPlot("retention-${i}", ${JSON.stringify(sp.traces)}, {...defaultLayout, yaxis: { title: "Δ median (ms)", zeroline: true }, showlegend: true, legend: { orientation: "h", y: -0.2 }}, plotConfig);`,
-  )
-  .join("\n")}
-
-// Distributions
-${distPanels
-  .map(
-    (p, i) =>
-      `Plotly.newPlot("dist-${i}", ${JSON.stringify(p.traces)}, {...defaultLayout, yaxis: { title: "Page completion (ms)" }, showlegend: true}, plotConfig);`,
-  )
-  .join("\n")}
-</script>
 </body>
 </html>`;
 }
 
 async function main() {
-  const [
-    heatmap,
-    chunkCrossover,
-    decomposition,
-    retention,
-    distributions,
-    comparisons,
-  ] = await Promise.all([
-    loadChart("chart-phase-a-heatmap.json"),
-    loadChart("chart-phase-a-chunk-crossover.json"),
-    loadChart("chart-phase-b-decomposition.json"),
-    loadChart("chart-phase-c-retention.json"),
-    loadChart("chart-distributions.json"),
-    loadChart("comparisons.json"),
+  const [manifest, comparisons] = await Promise.all([
+    loadJson(path.join(CHARTS_DIR, "manifest.json")),
+    loadJson(path.join(ANALYSIS_DIR, "comparisons.json")),
   ]);
 
-  const html = generateHtml(
-    heatmap,
-    chunkCrossover,
-    decomposition,
-    retention,
-    distributions,
-    comparisons,
-  );
+  const html = generateHtml(manifest, comparisons);
 
-  const outPath = path.join(REPORTS_DIR, "index.html");
   await fs.mkdir(REPORTS_DIR, { recursive: true });
+  const outPath = path.join(REPORTS_DIR, "index.html");
   await fs.writeFile(outPath, html);
 
   console.log(`✓ Report written to results/reports/index.html`);

@@ -41,24 +41,7 @@
         "large": 30
     },
     "warmupRuns": 5,
-    "phase2Profiles": {
-        "origin-no-cache": {
-            "description": "Origin-backed control with no edge cache",
-            "ttlSeconds": 0,
-            "payloadMode": "origin-proxy"
-        },
-        "edge-cache-hit": {
-            "description": "Origin-backed path with edge cache hits",
-            "ttlSeconds": 31536000,
-            "payloadMode": "origin-proxy"
-        },
-        "edge-direct": {
-            "description": "Caddy serves payloads directly with no origin hop",
-            "ttlSeconds": 0,
-            "payloadMode": "edge-direct"
-        }
-    },
-    "phase3": {
+    "phase2": {
         "cacheTtlSeconds": 3600,
         "invalidationProfiles": {
             "full-purge": {

@@ -8,9 +8,8 @@
  *   results/analysis/runs.json
  *
  * Outputs:
- *   results/analysis/chart-phase-a-heatmap.json
- *   results/analysis/chart-phase-b-decomposition.json
- *   results/analysis/chart-phase-c-retention.json
+ *   results/analysis/chart-phase-1-heatmap.json
+ *   results/analysis/chart-phase-2-retention.json
  *   results/analysis/chart-distributions.json
  */
 
@@ -31,12 +30,12 @@ function writeChart(name, data) {
 }
 
 /**
- * Phase A heatmap: H3 relative effect by payload × split, faceted by network profile.
- * Includes early-hints phase data alongside phase a.
+ * Phase 1 heatmap: H3 relative effect by payload × split, faceted by network profile.
+ * Includes early-hints phase data alongside phase 1.
  */
-function buildPhaseAHeatmap(comparisons) {
+function buildPhase1Heatmap(comparisons) {
   const rows = comparisons
-    .filter((c) => c.phase === "a" || c.phase === "early-hints")
+    .filter((c) => c.phase === "1" || c.phase === "early-hints")
     .map((c) => ({
       phase: c.phase,
       profileName: c.profileName,
@@ -68,54 +67,19 @@ function buildPhaseAHeatmap(comparisons) {
 }
 
 /**
- * Phase B decomposition: effect across cache profiles, with CI bars.
+ * Phase 2 retention: does the H3 split advantage survive cache invalidation?
  */
-function buildPhaseBDecomposition(comparisons) {
-  const rows = comparisons
-    .filter((c) => c.phase === "b")
-    .map((c) => ({
-      cacheProfile: c.cacheProfile,
-      payloadKb: c.payloadKb,
-      splitCount: c.splitCount,
-      median_h1: c.median_h1,
-      median_h3: c.median_h3,
-      delta_ms: c.delta_ms,
-      delta_pct: c.delta_pct,
-      ci_lower: c.ci_lower,
-      ci_upper: c.ci_upper,
-      significant: c.significant,
-      practically_significant: c.practically_significant,
-    }));
-
-  return {
-    chartType: "dot-whisker",
-    title: "H3 vs H1: Cache Layer Decomposition",
-    description:
-      "Effect of H3 across origin-no-cache, edge-cache-hit, and edge-direct configurations. Whiskers show 95% bootstrap CI on the median delta.",
-    axes: {
-      x: { field: "cacheProfile", label: "Cache Profile" },
-      y: { field: "delta_ms", label: "Δ Median (ms)" },
-      facet: { field: "payloadKb", label: "Payload (KB)" },
-      error: { lower: "ci_lower", upper: "ci_upper" },
-    },
-    data: rows,
-  };
-}
-
-/**
- * Phase C retention: does the H3 split advantage survive cache invalidation?
- */
-function buildPhaseCRetention(comparisons) {
-  // Get phase A baseline deltas for comparison
+function buildPhase2Retention(comparisons) {
+  // Get phase 1 baseline deltas for comparison
   const baselineByCell = new Map();
   for (const c of comparisons) {
-    if (c.phase !== "a" || c.profileName !== "baseline") continue;
+    if (c.phase !== "1" || c.profileName !== "baseline") continue;
     const key = `${c.payloadKb}|${c.splitCount}`;
     baselineByCell.set(key, c.delta_ms);
   }
 
   const rows = comparisons
-    .filter((c) => c.phase === "c")
+    .filter((c) => c.phase === "2")
     .map((c) => {
       const key = `${c.payloadKb}|${c.splitCount}`;
       const baselineDelta = baselineByCell.get(key);
@@ -145,7 +109,7 @@ function buildPhaseCRetention(comparisons) {
     chartType: "grouped-bar",
     title: "H3 vs H1: Effect Retention Under Cache Invalidation",
     description:
-      "How much of the H3 advantage from Phase A survives full and partial cache purges. retainedGainPct shows the ratio of the invalidation delta to the baseline delta.",
+      "How much of the H3 advantage from Phase 1 survives full and partial cache purges. retainedGainPct shows the ratio of the invalidation delta to the baseline delta.",
     axes: {
       x: { field: "invalidationProfile", label: "Invalidation Profile" },
       y: { field: "delta_ms", label: "Δ Median (ms)" },
@@ -158,10 +122,10 @@ function buildPhaseCRetention(comparisons) {
 
 /**
  * Distribution panel: raw page completion times for representative scenario cells.
- * Picks cells that span the payload/split range for phase A baseline.
+ * Picks cells that span the payload/split range for phase 1 baseline.
  */
 function buildDistributions(runs) {
-  // Representative cells: baseline profile, phase a/early-hints, spread of payloads and splits
+  // Representative cells: baseline profile, phase 1/early-hints, spread of payloads and splits
   const targets = [
     { payloadKb: 10, splitCount: 1 },
     { payloadKb: 10, splitCount: 10 },
@@ -179,7 +143,7 @@ function buildDistributions(runs) {
     const cellRuns = runs.filter(
       (r) =>
         r.profileName === "baseline" &&
-        (r.phase === "a" || r.phase === "early-hints") &&
+        (r.phase === "1" || r.phase === "early-hints") &&
         r.payloadKb === payloadKb &&
         r.splitCount === splitCount &&
         !r.cacheProfile &&
@@ -214,15 +178,15 @@ function buildDistributions(runs) {
 }
 
 /**
- * Phase A chunk-size crossover: shows H3 Δ% as a function of per-request
+ * Phase 1 chunk-size crossover: shows H3 Δ% as a function of per-request
  * chunk size (payload / splitCount), with one line per network profile.
  * Makes the crossover point where H3 flips from faster to slower immediately
  * visible — the real driver is individual chunk size, not payload or split
  * count in isolation.
  */
-function buildPhaseAChunkCrossover(comparisons) {
+function buildPhase1ChunkCrossover(comparisons) {
   const rows = comparisons
-    .filter((c) => c.phase === "a")
+    .filter((c) => c.phase === "1")
     .map((c) => ({
       profileName: c.profileName,
       payloadKb: c.payloadKb,
@@ -267,13 +231,12 @@ async function main() {
   const runs = runsFile.data;
 
   const charts = [
-    ["chart-phase-a-heatmap.json", buildPhaseAHeatmap(comparisons)],
+    ["chart-phase-1-heatmap.json", buildPhase1Heatmap(comparisons)],
     [
-      "chart-phase-a-chunk-crossover.json",
-      buildPhaseAChunkCrossover(comparisons),
+      "chart-phase-1-chunk-crossover.json",
+      buildPhase1ChunkCrossover(comparisons),
     ],
-    ["chart-phase-b-decomposition.json", buildPhaseBDecomposition(comparisons)],
-    ["chart-phase-c-retention.json", buildPhaseCRetention(comparisons)],
+    ["chart-phase-2-retention.json", buildPhase2Retention(comparisons)],
     ["chart-distributions.json", buildDistributions(runs)],
   ];
 
