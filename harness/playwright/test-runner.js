@@ -115,17 +115,27 @@ export async function runBrowserScenario({
   const url = `https://${host}:${portForProtocol(protocol)}${path}?${params.toString()}`;
   const allowH3Fallback =
     String(process.env.H3_ALLOW_FALLBACK || "").toLowerCase() === "true";
+  const maxRetries = protocol === "h3" ? 3 : 1;
   let lastError;
 
-  try {
-    return await runOnce({
-      launchProtocol: protocol,
-      protocolProfile: host,
-      url,
-      profile,
-    });
-  } catch (error) {
-    lastError = error;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await runOnce({
+        launchProtocol: protocol,
+        protocolProfile: host,
+        url,
+        profile,
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries) {
+        const delayMs = attempt * 2000;
+        console.warn(
+          `⚠️  ${protocol} attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in ${delayMs}ms…`,
+        );
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
   }
 
   // Optional compatibility fallback for diagnostics only.
