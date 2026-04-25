@@ -40,20 +40,58 @@ function generateHtml(manifest, comparisons) {
       : "–";
 
   // Group charts by prefix
-  const heatmaps = manifest.filter((f) => f.startsWith("phase-1-heatmap-"));
+  const heatmapOrder = [
+    "phase-1-heatmap-baseline",
+    "phase-1-heatmap-moderate-rtt",
+    "phase-1-heatmap-loss-0.5pct",
+    "phase-1-heatmap-loss-1pct",
+    "phase-1-heatmap-loss-3pct",
+  ];
+  const heatmaps = manifest
+    .filter((f) => f.startsWith("phase-1-heatmap-"))
+    .sort((a, b) => {
+      const aBase = a.replace(".html", "");
+      const bBase = b.replace(".html", "");
+      const ai = heatmapOrder.indexOf(aBase);
+      const bi = heatmapOrder.indexOf(bBase);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
   const crossover = manifest.filter((f) =>
     f.startsWith("phase-1-chunk-crossover"),
   );
-  const retentions = manifest.filter((f) => f.startsWith("phase-2-retention-"));
+  const h1Scaling = manifest.filter((f) =>
+    f.startsWith("phase-1-scaling"),
+  );
+  const retentions = manifest.filter((f) => f.startsWith("phase-2-retention"));
   const dists = manifest.filter((f) => f.startsWith("distribution-"));
+
+  function chartLabel(filename) {
+    const base = filename.replace(/\.html$/, "");
+    // Phase 1 heatmaps: "phase-1-heatmap-baseline" → "baseline"
+    if (base.startsWith("phase-1-heatmap-"))
+      return base.replace("phase-1-heatmap-", "");
+    // Phase 1 crossover
+    if (base === "phase-1-chunk-crossover") return "chunk crossover";
+    // Phase 1 scaling
+    if (base === "phase-1-scaling") return "request scaling";
+    // Phase 2 retention per-payload: "phase-2-retention-1000kb" → "1000kb payload"
+    if (base.startsWith("phase-2-retention-"))
+      return base.replace("phase-2-retention-", "") + " payload";
+    // Phase 2 retention overview
+    if (base === "phase-2-retention") return "overview";
+    // Distributions: "distribution-10kb-1-chunks" → "10kb × 1 chunks"
+    if (base.startsWith("distribution-")) {
+      const m = base.match(/distribution-(\d+kb)-(\d+)-chunks/);
+      if (m) return `${m[1]} × ${m[2]} chunks`;
+      return base.replace("distribution-", "");
+    }
+    return base.replace(/-/g, " ");
+  }
 
   function chartGrid(files, height = "400px") {
     return `<div class="chart-grid">\n${files
       .map((f) => {
-        const label = f
-          .replace(/\.html$/, "")
-          .replace(/^[a-z-]+-/, "")
-          .replace(/-/g, " ");
+        const label = chartLabel(f);
         return `  <div class="chart-cell">\n    <h3>${label}</h3>\n    ${chartIframe(f, height)}\n  </div>`;
       })
       .join("\n")}\n</div>`;
@@ -107,6 +145,16 @@ ${
     ? `<h2>Phase 1 – Chunk Size Crossover</h2>
 <div class="chart-cell" style="margin: 1rem 0;">
   ${chartIframe(crossover[0], "500px")}
+</div>`
+    : ""
+}
+
+${
+  h1Scaling.length > 0
+    ? `<h2>Phase 1 – HTTP Request Scaling</h2>
+<p>Shows how page completion time grows with split count for each payload size. Demonstrates the per-request overhead tax.</p>
+<div class="chart-cell" style="margin: 1rem 0;">
+  ${chartIframe(h1Scaling[0], "500px")}
 </div>`
     : ""
 }

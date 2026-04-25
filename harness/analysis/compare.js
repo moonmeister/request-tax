@@ -27,8 +27,10 @@ const BOOTSTRAP_RESAMPLES = 5000;
 const PERMUTATION_ITERS = 10000;
 
 function cellKey(run) {
+  // Normalize equivalent phase labels so runs are merged
+  const phase = run.phase === "c" ? "2" : run.phase === "a" ? "1" : run.phase;
   return [
-    run.phase,
+    phase,
     run.profileName,
     run.payloadKb,
     run.splitCount,

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Request Tax – H1 vs H3</title>
+    <link rel="stylesheet" href="../node_modules/reveal.js/dist/reveal.css" />
+    <link
+      rel="stylesheet"
+      href="../node_modules/reveal.js/dist/theme/dracula.css"
+    />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides"></div>
+    </div>
+    <script src="../node_modules/reveal.js/dist/reveal.js"></script>
+    <script src="../node_modules/reveal.js/dist/plugin/markdown.js"></script>
+    <script src="../node_modules/reveal.js/dist/plugin/notes.js"></script>
+    </script>
+    <script type="module">
+      const res = await fetch("./");
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const mdFiles = [...doc.querySelectorAll("a")]
+        .map((a) => decodeURIComponent(a.getAttribute("href") || ""))
+        .filter((h) => /^\d{2}-.*\.md$/.test(h.split("/").pop()))
+        .map((h) => h.split("/").pop())
+        .sort();
+
+      const slidesDiv = document.querySelector(".slides");
+      for (const file of mdFiles) {
+        const section = document.createElement("section");
+        section.setAttribute("data-markdown", file);
+        section.setAttribute("data-separator", "THIS_WILL_NEVER_MATCH");
+        section.setAttribute("data-separator-vertical", String.raw`^\n---\n$`);
+        section.setAttribute("data-separator-notes", String.raw`^Note:\s*`);
+        slidesDiv.appendChild(section);
+      }
+
+      await Reveal.initialize({
+        hash: true,
+        width: 1280,
+        height: 720,
+        margin: 0.04,
+        transition: "slide",
+        plugins: [RevealMarkdown, RevealNotes],
+      });
+    </script>
+  </body>
+</html>

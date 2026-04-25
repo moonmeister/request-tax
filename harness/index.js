@@ -16,6 +16,41 @@ import { runBrowserScenario } from "./playwright/test-runner.js";
 const scenarioFile = path.resolve("harness", "scenarios.json");
 const rawDir = path.resolve("results", "raw");
 
+/** Find the highest existing run-N folder number, or 0 if none exist. */
+async function latestRunNumber() {
+  let entries;
+  try {
+    entries = await fs.readdir(rawDir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let max = 0;
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const m = e.name.match(/^run-(\d+)$/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max;
+}
+
+/** Resolve the target run directory based on CLI args. */
+async function resolveRunDir(args) {
+  if (args.run !== undefined) {
+    const n = Number(args.run);
+    if (!Number.isFinite(n) || n < 1)
+      throw new Error("--run must be a positive integer");
+    return path.join(rawDir, `run-${n}`);
+  }
+  if (args.resume) {
+    const latest = await latestRunNumber();
+    if (latest === 0)
+      throw new Error("--resume: no existing run folders found");
+    return path.join(rawDir, `run-${latest}`);
+  }
+  const next = (await latestRunNumber()) + 1;
+  return path.join(rawDir, `run-${next}`);
+}
+
 function scenarioId(s) {
   const cacheTag = s.cacheProfile ? `_${s.cacheProfile}` : "";
   const invalidationTag = s.invalidationProfileName
@@ -79,7 +114,7 @@ async function run() {
   const cliArgs = process.argv.slice(2).filter((a) => a !== "--");
   const args = minimist(cliArgs, {
     string: ["phase", "scenario"],
-    boolean: ["no-start", "no-stop", "smoke", "help"],
+    boolean: ["no-start", "no-stop", "smoke", "resume", "help"],
     default: {
       phase: "1",
       mode: "run",
@@ -100,7 +135,8 @@ Options:
   --no-start             Skip starting the Docker stack
   --no-stop              Skip stopping the Docker stack after run
   --smoke                Run one minimal run per protocol
-  --resume [N]           Skip scenarios with >= N existing results (default: 1)
+  --resume               Resume the latest run (skip completed scenarios)
+  --run <N>              Target a specific run folder (run-N)
   --measured-runs <N>    Override number of measured runs
   --warmup-runs <N>      Override number of warmup runs
   --help                 Show this help message`);
@@ -143,13 +179,14 @@ Options:
       for (const [name, invalidation] of Object.entries(
         phase2.invalidationProfiles,
       )) {
-        const staleChunks = Math.max(
-          1,
-          Math.min(
-            s.splitCount,
-            Math.ceil(s.splitCount * Number(invalidation.staleRatio || 0)),
-          ),
-        );
+        const staleRatio = Number(invalidation.staleRatio || 0);
+        const staleChunks =
+          staleRatio === 0
+            ? 0
+            : Math.max(
+                1,
+                Math.min(s.splitCount, Math.ceil(s.splitCount * staleRatio)),
+              );
         scenariosWithInvalidation.push({
           ...s,
           cacheProfile: "invalidation",
@@ -175,30 +212,29 @@ Options:
     }
   }
 
-  // Resume: skip scenarios that already have enough result files.
-  // --resume (or --resume true) requires at least 1 result; --resume N requires N.
-  if (args.resume !== false && args.resume !== undefined) {
-    const minResults = typeof args.resume === "number" ? args.resume : 1;
+  // Resolve target run directory
+  const runDir = await resolveRunDir(args);
+  console.log(`Target run directory: ${path.relative(process.cwd(), runDir)}`);
+
+  // Resume: skip scenarios that already have a result file in this run folder.
+  if (args.resume) {
     let existingFiles = [];
     try {
-      existingFiles = await fs.readdir(rawDir);
+      existingFiles = await fs.readdir(runDir);
     } catch {
-      // rawDir doesn't exist yet, nothing to skip
+      // runDir doesn't exist yet, nothing to skip
     }
-    const resultCounts = new Map();
+    const existing = new Set();
     for (const f of existingFiles) {
       if (!f.endsWith(".json")) continue;
-      const id = f.replace(/_\d+\.json$/, "");
-      resultCounts.set(id, (resultCounts.get(id) || 0) + 1);
+      existing.add(f.replace(/_\d+\.json$/, ""));
     }
     const before = scenarios.length;
-    scenarios = scenarios.filter(
-      (s) => (resultCounts.get(runScenarioId(s)) || 0) < minResults,
-    );
+    scenarios = scenarios.filter((s) => !existing.has(runScenarioId(s)));
     const skipped = before - scenarios.length;
     if (skipped > 0) {
       console.log(
-        `resume: skipping ${skipped} scenario(s) with >= ${minResults} result file(s)`,
+        `resume: skipping ${skipped}/${before} completed scenario(s), ${scenarios.length} remaining`,
       );
     }
     if (scenarios.length === 0) {
@@ -306,7 +342,7 @@ Options:
       };
 
       await writeJson(
-        path.join(rawDir, `${runScenarioId(s)}_${Date.now()}.json`),
+        path.join(runDir, `${runScenarioId(s)}_${Date.now()}.json`),
         payload,
       );
       summaryRows.push({ ...s, summary });

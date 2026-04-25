@@ -16,6 +16,21 @@ import { validateRawFile } from "./validate.js";
 const RAW_DIR = path.resolve("results", "raw");
 const OUT_DIR = path.resolve("results", "analysis");
 
+/** Recursively collect all .json files under a directory. */
+async function collectJsonFiles(dir) {
+  const results = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...(await collectJsonFiles(full)));
+    } else if (entry.name.endsWith(".json")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
 function median(sorted) {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0
@@ -32,9 +47,9 @@ function percentile(sorted, p) {
 }
 
 async function main() {
-  const files = (await fs.readdir(RAW_DIR)).filter((f) => f.endsWith(".json"));
+  const filePaths = await collectJsonFiles(RAW_DIR);
 
-  if (files.length === 0) {
+  if (filePaths.length === 0) {
     console.error("No raw JSON files found in", RAW_DIR);
     process.exit(1);
   }
@@ -45,8 +60,8 @@ async function main() {
   const allErrors = [];
   const allWarnings = [];
 
-  for (const file of files) {
-    const filePath = path.join(RAW_DIR, file);
+  for (const filePath of filePaths) {
+    const file = path.relative(RAW_DIR, filePath);
     const data = JSON.parse(await fs.readFile(filePath, "utf8"));
     const { errors, warnings } = validateRawFile(data, file);
 
@@ -137,7 +152,7 @@ async function main() {
   const meta = {
     schemaVersion: 1,
     extractedAt: new Date().toISOString(),
-    rawFileCount: files.length,
+    rawFileCount: filePaths.length,
   };
 
   await Promise.all([
@@ -147,7 +162,7 @@ async function main() {
     ),
     fs.writeFile(
       path.join(OUT_DIR, "requests.json"),
-      JSON.stringify({ meta, data: allRequests }, null, 2),
+      JSON.stringify({ meta, data: allRequests }),
     ),
     fs.writeFile(
       path.join(OUT_DIR, "scenarios.json"),
@@ -156,7 +171,7 @@ async function main() {
   ]);
 
   console.log(
-    `✓ Extracted ${allRuns.length} runs, ${allRequests.length} requests, ${allScenarios.length} scenarios from ${files.length} files`,
+    `✓ Extracted ${allRuns.length} runs, ${allRequests.length} requests, ${allScenarios.length} scenarios from ${filePaths.length} files`,
   );
 }
 

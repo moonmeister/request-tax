@@ -70,51 +70,60 @@ function buildPhase1Heatmap(comparisons) {
  * Phase 2 retention: does the H3 split advantage survive cache invalidation?
  */
 function buildPhase2Retention(comparisons) {
-  // Get phase 1 baseline deltas for comparison
+  const phase2 = comparisons
+    .filter((c) => c.phase === "2")
+    .filter((c) => c.splitCount > 1);
+
+  // Build baseline from fully-cached Phase 2 rows for retainedGainPct
   const baselineByCell = new Map();
-  for (const c of comparisons) {
-    if (c.phase !== "1" || c.profileName !== "baseline") continue;
+  for (const c of phase2) {
+    if (c.invalidationProfile !== "fully-cached") continue;
     const key = `${c.payloadKb}|${c.splitCount}`;
-    baselineByCell.set(key, c.delta_ms);
+    baselineByCell.set(key, c);
   }
 
-  const rows = comparisons
-    .filter((c) => c.phase === "2")
-    .map((c) => {
-      const key = `${c.payloadKb}|${c.splitCount}`;
-      const baselineDelta = baselineByCell.get(key);
-      const retainedGainPct =
-        baselineDelta && baselineDelta !== 0
+  const rows = phase2.map((c) => {
+    const key = `${c.payloadKb}|${c.splitCount}`;
+    const baseline = baselineByCell.get(key);
+    const baselineDelta = baseline?.delta_ms;
+    const retainedGainPct =
+      c.invalidationProfile === "fully-cached"
+        ? 100
+        : baselineDelta && baselineDelta !== 0
           ? (c.delta_ms / baselineDelta) * 100
           : null;
 
-      return {
-        invalidationProfile: c.invalidationProfile,
-        payloadKb: c.payloadKb,
-        splitCount: c.splitCount,
-        median_h1: c.median_h1,
-        median_h3: c.median_h3,
-        delta_ms: c.delta_ms,
-        delta_pct: c.delta_pct,
-        ci_lower: c.ci_lower,
-        ci_upper: c.ci_upper,
-        significant: c.significant,
-        practically_significant: c.practically_significant,
-        baselineDelta_ms: baselineDelta ?? null,
-        retainedGainPct,
-      };
-    });
+    return {
+      invalidationProfile: c.invalidationProfile,
+      payloadKb: c.payloadKb,
+      splitCount: c.splitCount,
+      chunkSizeKb: c.payloadKb / c.splitCount,
+      median_h1: c.median_h1,
+      median_h3: c.median_h3,
+      delta_ms: c.delta_ms,
+      delta_pct: c.delta_pct,
+      ci_lower: c.ci_lower,
+      ci_upper: c.ci_upper,
+      significant: c.significant,
+      practically_significant: c.practically_significant,
+      baselineDelta_ms: baselineDelta ?? null,
+      retainedGainPct,
+    };
+  });
 
   return {
-    chartType: "grouped-bar",
-    title: "H3 vs H1: Effect Retention Under Cache Invalidation",
+    chartType: "line",
+    title: "H3 vs H1: Cache Granularity Effect Under Invalidation",
     description:
-      "How much of the H3 advantage from Phase 1 survives full and partial cache purges. retainedGainPct shows the ratio of the invalidation delta to the baseline delta.",
+      "Each line represents a cache invalidation scenario. X-axis is chunk size (payload ÷ split count). Smaller chunks mean more granular caching. The fully-cached line is the zero-invalidation baseline. Below zero H3 is faster.",
     axes: {
-      x: { field: "invalidationProfile", label: "Invalidation Profile" },
-      y: { field: "delta_ms", label: "Δ Median (ms)" },
-      facet: { field: "payloadKb", label: "Payload (KB)" },
-      group: { field: "splitCount", label: "Split Count" },
+      x: {
+        field: "chunkSizeKb",
+        label: "Chunk Size per Request (KB)",
+        scale: "log",
+      },
+      y: { field: "delta_pct", label: "Δ% (H3 − H1)" },
+      color: { field: "invalidationProfile", label: "Invalidation Profile" },
     },
     data: rows,
   };
@@ -221,6 +230,37 @@ function buildPhase1ChunkCrossover(comparisons) {
   };
 }
 
+/**
+ * Phase 1 H1 scaling: shows how H1 page completion time grows with split count,
+ * one line per payload size. Baseline profile only. Demonstrates the request tax
+ * — the cost of many small requests over H1 — independent of H3 comparison.
+ */
+function buildPhase1H1Scaling(comparisons) {
+  const rows = comparisons
+    .filter((c) => c.phase === "1" && c.profileName === "baseline")
+    .map((c) => ({
+      payloadKb: c.payloadKb,
+      splitCount: c.splitCount,
+      chunkSizeKb: c.payloadKb / c.splitCount,
+      median_h1: c.median_h1,
+      median_h3: c.median_h3,
+    }))
+    .sort((a, b) => a.splitCount - b.splitCount || a.payloadKb - b.payloadKb);
+
+  return {
+    chartType: "line",
+    title: "HTTP Request Scaling by Split Count",
+    description:
+      "Shows how page completion time scales with the number of requests (split count) for each total payload size under baseline network conditions. Demonstrates the per-request overhead tax.",
+    axes: {
+      x: { field: "splitCount", label: "Split Count (requests)", scale: "log" },
+      y: { field: "median_h1", label: "Median Page Completion (ms)", scale: "log" },
+      color: { field: "payloadKb", label: "Total Payload (KB)" },
+    },
+    data: rows,
+  };
+}
+
 async function main() {
   const [comparisonsFile, runsFile] = await Promise.all([
     loadJson("comparisons.json"),
@@ -236,6 +276,7 @@ async function main() {
       "chart-phase-1-chunk-crossover.json",
       buildPhase1ChunkCrossover(comparisons),
     ],
+    ["chart-phase-1-scaling.json", buildPhase1H1Scaling(comparisons)],
     ["chart-phase-2-retention.json", buildPhase2Retention(comparisons)],
     ["chart-distributions.json", buildDistributions(runs)],
   ];

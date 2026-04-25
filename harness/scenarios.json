@@ -8,27 +8,22 @@
     ],
     "splitStrategies": {
         "1": [
-            1,
             10
         ],
         "10": [
-            1,
             10,
             100
         ],
         "100": [
-            1,
             10,
             100
         ],
         "1000": [
-            1,
             10,
             100,
             1000
         ],
         "10000": [
-            1,
             10,
             100,
             1000
@@ -53,6 +48,10 @@
     "phase2": {
         "cacheTtlSeconds": 3600,
         "invalidationProfiles": {
+            "fully-cached": {
+                "description": "All chunks served from cache (0% invalidated)",
+                "staleRatio": 0
+            },
             "full-purge": {
                 "description": "All chunks invalidated",
                 "staleRatio": 1

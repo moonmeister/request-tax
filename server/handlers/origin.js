@@ -86,7 +86,9 @@ function benchPage({
     // Then invalidate selected chunks by changing their version token only.
     const purgeVersion = 'purge-' + runToken;
     const staleSet = new Set(
-      Array.from({ length: Math.min(chunks, Math.max(1, staleChunks)) }, (_, i) => i)
+      staleChunks > 0
+        ? Array.from({ length: Math.min(chunks, staleChunks) }, (_, i) => i)
+        : []
     );
 
     requests = Array.from({ length: chunks }, (_, i) =>

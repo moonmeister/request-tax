@@ -67,7 +67,7 @@ async function main() {
     console.log(`✓ All phases completed in ${duration}s`);
     console.log(`${"=".repeat(60)}`);
     console.log("\nResults available in:");
-    console.log("  - Raw JSON: results/raw/*.json");
+    console.log("  - Raw JSON: results/raw/run-*/*.json");
     console.log("  - Run: pnpm analyze && pnpm report:open");
     console.log();
   } catch (error) {
