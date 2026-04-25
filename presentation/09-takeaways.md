@@ -1,10 +1,24 @@
-## Key Takeaways
+## How I move forward...
 
-1. H3 multiplexing removes the per-request penalty at small-to-medium chunk sizes
-2. The crossover point depends on network conditions — loss amplifies H3's advantage
-3. Edge caching + H3 is the sweet spot: no origin round trips, full multiplexing
-4. Cache invalidation erodes the H3 advantage proportionally to stale ratio
-5. **Implication:** With H3 adoption, fine-grained splitting becomes viable — enabling better caching, smaller invalidation blast radius, and faster incremental updates
+1. Bundling = Premature optimization <!-- .element: class="fragment" -->
+2. H3 is faster, even when it's not its fast enough <!-- .element: class="fragment" -->
+
+---
+
+## The Point.
+
+<div style="display:flex;align-items:center;gap:2em;">
+
+<div>
+🛑 Bundling <!-- .element: class="fragment" -->
+
+🚀 Optimizing for cache hit rates <!-- .element: class="fragment" -->
+
+</div>
+
+<img src="./assets/defenestration.jpg" style="max-height:600px;" />
+
+</div>
 
 ---
 

@@ -11,6 +11,8 @@
 
 ## Methodology
 
+**Anomalies may exist**
+
 - **Edge:** Caddy
 - **Origin:** Node.js HTTP/1.1 server
 - **Client:** Playwright / Chromium
