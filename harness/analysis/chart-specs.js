@@ -254,7 +254,11 @@ function buildPhase1H1Scaling(comparisons) {
       "Shows how page completion time scales with the number of requests (split count) for each total payload size under baseline network conditions. Demonstrates the per-request overhead tax.",
     axes: {
       x: { field: "splitCount", label: "Split Count (requests)", scale: "log" },
-      y: { field: "median_h1", label: "Median Page Completion (ms)", scale: "log" },
+      y: {
+        field: "median_h1",
+        label: "Median Page Completion (ms)",
+        scale: "log",
+      },
       color: { field: "payloadKb", label: "Total Payload (KB)" },
     },
     data: rows,

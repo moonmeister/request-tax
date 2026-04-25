@@ -59,9 +59,7 @@ function generateHtml(manifest, comparisons) {
   const crossover = manifest.filter((f) =>
     f.startsWith("phase-1-chunk-crossover"),
   );
-  const h1Scaling = manifest.filter((f) =>
-    f.startsWith("phase-1-scaling"),
-  );
+  const h1Scaling = manifest.filter((f) => f.startsWith("phase-1-scaling"));
   const retentions = manifest.filter((f) => f.startsWith("phase-2-retention"));
   const dists = manifest.filter((f) => f.startsWith("distribution-"));
 

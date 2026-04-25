@@ -70,7 +70,10 @@ function buildHeatmapFiles(chart) {
 
   // Compute global zmin/zmax so all heatmaps share the same color scale
   const allDeltas = chart.data.map((d) => d.delta_pct).filter((v) => v != null);
-  const globalMax = Math.max(Math.abs(Math.min(...allDeltas)), Math.abs(Math.max(...allDeltas)));
+  const globalMax = Math.max(
+    Math.abs(Math.min(...allDeltas)),
+    Math.abs(Math.max(...allDeltas)),
+  );
 
   for (const profile of profiles) {
     const rows = chart.data.filter((d) => d.profileName === profile);
@@ -432,13 +435,14 @@ function buildDistributionFiles(chart) {
 // ─── Main ───────────────────────────────────────────────────────────────
 
 async function main() {
-  const [heatmap, crossover, h1Scaling, retention, distributions] = await Promise.all([
-    tryLoadChart("chart-phase-1-heatmap.json"),
-    tryLoadChart("chart-phase-1-chunk-crossover.json"),
-    tryLoadChart("chart-phase-1-scaling.json"),
-    tryLoadChart("chart-phase-2-retention.json"),
-    tryLoadChart("chart-distributions.json"),
-  ]);
+  const [heatmap, crossover, h1Scaling, retention, distributions] =
+    await Promise.all([
+      tryLoadChart("chart-phase-1-heatmap.json"),
+      tryLoadChart("chart-phase-1-chunk-crossover.json"),
+      tryLoadChart("chart-phase-1-scaling.json"),
+      tryLoadChart("chart-phase-2-retention.json"),
+      tryLoadChart("chart-distributions.json"),
+    ]);
 
   await fs.mkdir(CHARTS_DIR, { recursive: true });
 
