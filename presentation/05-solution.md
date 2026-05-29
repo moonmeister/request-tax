@@ -23,26 +23,22 @@
 
 ---
 
-## We did fix this!
+## Try, try again...
 
 **HTTP/3 over QUIC**
 
 <ul>
-<li class="fragment">✅ Parallel requests (multiplexing via frames)</li>
+<li class="fragment">✅ Parallel requests (multiplexing via streams)</li>
 <li class="fragment">✅ Header compression (QPACK)</li>
 <li class="fragment">✅ Single connection per origin</li>
 <li class="fragment">✅ No TCP head-of-line blocking (independent streams)</li>
-<li class="fragment">✅ No TCP slow start penalty (0-RTT resumption)</li>
+<li class="fragment">✅ No TCP slow start penalty (once for all streams)</li>
 <li class="fragment">✅ Faster handshake (TLS 1.3 built into QUIC)</li>
-<li class="fragment">✅ Connection migration (survives network changes)</li>
+<li class="fragment">✅ 2-RTT cold start, 0-RRT & 1-RTT warm start</li>
 </ul>
 
 ---
 
 ## Did we fix this?
 
-<br />
-
-**Let's look at the data...**
-
-![Data on the bride](./assets/data.png) <!-- .element: class="fragment" -->
+![allegedly](./assets/allegedly.gif)

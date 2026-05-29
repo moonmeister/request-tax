@@ -60,7 +60,9 @@ function generateHtml(manifest, comparisons) {
     f.startsWith("phase-1-chunk-crossover"),
   );
   const h1Scaling = manifest.filter((f) => f.startsWith("phase-1-scaling"));
-  const retentions = manifest.filter((f) => f.startsWith("phase-2-retention"));
+  const h3Performance = manifest.filter((f) =>
+    f.startsWith("phase-1-h3-performance"),
+  );
   const dists = manifest.filter((f) => f.startsWith("distribution-"));
 
   function chartLabel(filename) {
@@ -72,11 +74,9 @@ function generateHtml(manifest, comparisons) {
     if (base === "phase-1-chunk-crossover") return "chunk crossover";
     // Phase 1 scaling
     if (base === "phase-1-scaling") return "request scaling";
-    // Phase 2 retention per-payload: "phase-2-retention-1000kb" → "1000kb payload"
-    if (base.startsWith("phase-2-retention-"))
-      return base.replace("phase-2-retention-", "") + " payload";
-    // Phase 2 retention overview
-    if (base === "phase-2-retention") return "overview";
+    // H3 performance
+    if (base.startsWith("phase-1-h3-performance-"))
+      return base.replace("phase-1-h3-performance-", "");
     // Distributions: "distribution-10kb-1-chunks" → "10kb × 1 chunks"
     if (base.startsWith("distribution-")) {
       const m = base.match(/distribution-(\d+kb)-(\d+)-chunks/);
@@ -158,9 +158,10 @@ ${
 }
 
 ${
-  retentions.length > 0
-    ? `<h2>Phase 2 – Invalidation Retention</h2>
-${chartGrid(retentions, "400px")}`
+  h3Performance.length > 0
+    ? `<h2>Phase 1 – HTTP/3 Download Performance</h2>
+<p>HTTP/3-only page completion time as payload is split into more requests, per network profile. Shows the cost of splitting under H3 multiplexing.</p>
+${chartGrid(h3Performance, "450px")}`
     : ""
 }
 

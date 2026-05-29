@@ -1,24 +1,19 @@
-## How I move forward...
+![](./assets/independence.jpg)
 
-1. Bundling = Premature optimization <!-- .element: class="fragment" -->
-2. H3 is faster, even when it's not its fast enough <!-- .element: class="fragment" -->
+HTTP/3 + Caching = ❤️
+
+Note:
+
+- I suspect our current default bundling mechanisms are over optimizing for network issues that no longer exist.
 
 ---
 
-## The Point.
+## Prompts
 
-<div style="display:flex;align-items:center;gap:2em;">
-
-<div>
-🛑 Bundling <!-- .element: class="fragment" -->
-
-🚀 Optimizing for cache hit rates <!-- .element: class="fragment" -->
-
-</div>
-
-<img src="./assets/defenestration.jpg" style="max-height:600px;" />
-
-</div>
+- Average developer: stop thinking about bundling, just build cool things <!-- .element: class="fragment" -->
+- Framework/Bundler maintainers: Is the default app/framework/route still the answer? <!-- .element: class="fragment" -->
+- Cloudflare: can you get us more data? Can you follow up on your 2020 article on HTTP/3 performance? <!-- .element: class="fragment" -->
+- Any one else got cool data? <!-- .element: class="fragment" -->
 
 ---
 
