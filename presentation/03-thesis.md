@@ -6,13 +6,13 @@
 
 ---
 
-## I had a problem...
+## I had a problem.
 
 <img src="./assets/tobundlenottobundle.jpg" alt="to bundle, not to bundle" style="max-height:600px;" />
 
 ---
 
-## How we bundle...
+## How we bundle
 
 - Javascript / CSS (webpack, Rollup, etc.) <!-- .element: class="fragment" -->
 - Inline CSS / JS <!-- .element: class="fragment" -->
@@ -22,3 +22,4 @@
 - Single Page Apps <!-- .element: class="fragment" -->
 - Oversized REST Endpoints <!-- .element: class="fragment" -->
 - GraphQL / GraphQL Client Batching <!-- .element: class="fragment" -->
+- ... <!-- .element: class="fragment" -->

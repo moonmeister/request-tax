@@ -26,7 +26,7 @@
 
 <ul>
     <li class="fragment">A single changed line invalidates the <strong>entire</strong> bundle</li>
-    <li class="fragment">Users re-download kilobytes for bytes of changes</li>
+    <li class="fragment">Users re-fetch kilobytes from origin for bytes of changes</li>
     <li class="fragment">Cache hit rates drop as bundle grows</li>
 </ul>
 
@@ -43,11 +43,3 @@
 - **TCP + HTTP/1.1** gain performance from bundling
 - **Document Caching** gains performance from granularity
 - **Code Splitting** is our way of finding balance
-
----
-
-## Challenges
-
-- Network will always be slower than no network <!-- .element: class="fragment" -->
-- Caching reduces network <!-- .element: class="fragment" -->
-- How to we push optimization towards better caching? <!-- .element: class="fragment" -->

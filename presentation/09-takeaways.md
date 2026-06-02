@@ -10,13 +10,15 @@ Note:
 
 ## Prompts
 
-- Average developer: stop thinking about bundling, just build cool things <!-- .element: class="fragment" -->
+- Average developer: Optimize for caching, stop stressing about the network <!-- .element: class="fragment" -->
 - Framework/Bundler maintainers: Is the default app/framework/route still the answer? <!-- .element: class="fragment" -->
 - Cloudflare: can you get us more data? Can you follow up on your 2020 article on HTTP/3 performance? <!-- .element: class="fragment" -->
 - Any one else got cool data? <!-- .element: class="fragment" -->
 
 ---
 
-## Thank You
+## Thank You!
 
-Data & source: [github.com/moonmeister/request-tax](https://github.com/moonmeister/request-tax)
+![](./assets/qrcode_github.com.png)
+
+Data & source: [github.com/moonmeister/request-tax/tree/cascadia-js](https://github.com/moonmeister/request-tax/tree/cascadia-js)
