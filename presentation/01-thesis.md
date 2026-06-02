@@ -1,12 +1,10 @@
-## Buckle up...
+## Hello
 
-<br />
-
-![GIF from the office with words "storytime"](./assets/the-office-interested.gif)
+![](./assets/intervention-cobie-smulders.gif) <!-- .element: class="fragment" -->
 
 ---
 
-## I had a problem.
+## I had a problem
 
 <img src="./assets/tobundlenottobundle.jpg" alt="to bundle, not to bundle" style="max-height:600px;" />
 

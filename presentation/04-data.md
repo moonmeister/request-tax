@@ -21,3 +21,11 @@
 ## The cost of not bundling
 
 <iframe src="../results/charts/phase-1-scaling.html" style="width:100%;height:500px;border:none;"></iframe>
+
+---
+
+## Outside data...
+
+![](./assets/ny-all-protocols.webp)
+
+Source: https://requestmetrics.com/web-performance/http3-is-fast/

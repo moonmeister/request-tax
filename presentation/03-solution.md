@@ -1,6 +1,4 @@
-## Can we fix this?
-
-**HTTP/2 (SPDY)**
+## HTTP/2 (SPDY)
 
 <div style="display:flex;align-items:flex-start;gap:3em;">
 <div>
@@ -23,9 +21,7 @@
 
 ---
 
-## Try, try again...
-
-**HTTP/3 over QUIC**
+## HTTP/3 over QUIC
 
 <ul>
 <li class="fragment">✅ Parallel requests (multiplexing via streams)</li>

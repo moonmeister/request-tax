@@ -1,9 +1,5 @@
 ## Why do we bundle?
 
----
-
-## We bundle because...
-
 - Head-of-line blocking per connection <!-- .element: class="fragment" -->
 - 6 parallel connections per origin <!-- .element: class="fragment" -->
 - Header Overhead <!-- .element: class="fragment" -->
@@ -12,7 +8,7 @@
 
 ---
 
-## ...HTTP/1.1 told us to!
+## HTTP/1.1 told us to!
 
 <br />
 
